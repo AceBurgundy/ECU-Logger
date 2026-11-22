@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'elm327_protocol.dart';
 
 enum BleConnectionState {
   disconnected,
@@ -49,10 +50,12 @@ class BleService {
   BluetoothDevice? _connectedDevice;
   BluetoothCharacteristic? _writeCharacteristic;
   StreamSubscription? _scanSubscription;
-  StreamSubscription? _notifySubscription;
+  final List<StreamSubscription> _notifySubscriptions = [];
+  StreamSubscription? _deviceStateSubscription;
 
-  // Mock stream timer for testing/simulation
+  // Mock stream & hardware polling timers
   Timer? _mockTimer;
+  Timer? _hardwarePollingTimer;
 
   void _updateState(BleConnectionState newState) {
     _state = newState;
@@ -65,6 +68,7 @@ class BleService {
         Permission.bluetoothScan,
         Permission.bluetoothConnect,
         Permission.locationWhenInUse,
+        Permission.storage,
       ].request();
 
       return statuses.values.every((s) => s.isGranted || s.isLimited);
@@ -134,10 +138,10 @@ class BleService {
     await stopScan();
     _updateState(BleConnectionState.connecting);
 
-    if (target.device == null || target.id == '8C:DE:52:DF:42:C3') {
-      // Fallback/Simulated connection mode
+    if (target.device == null) {
+      // Simulated connection mode when hardware adapter is not physically discovered
       await Future.delayed(const Duration(milliseconds: 600));
-      _connectedDevice = target.device;
+      _connectedDevice = null;
       _updateState(BleConnectionState.connected);
       _startMockDataStream();
       return;
@@ -150,15 +154,26 @@ class BleService {
         timeout: const Duration(seconds: 10),
       );
 
+      // Listen for unexpected hardware disconnection
+      _deviceStateSubscription?.cancel();
+      _deviceStateSubscription = _connectedDevice!.connectionState.listen((connState) {
+        if (connState == BluetoothConnectionState.disconnected &&
+            _state == BleConnectionState.connected) {
+          _dataStreamController.add('[SYSTEM] Hardware adapter disconnected.');
+          disconnect();
+        }
+      });
+
       final services = await _connectedDevice!.discoverServices();
       for (final service in services) {
         for (final char in service.characteristics) {
           if (char.properties.notify || char.properties.indicate) {
             await char.setNotifyValue(true);
-            _notifySubscription = char.lastValueStream.listen((value) {
+            final sub = char.onValueReceived.listen((value) {
               final text = utf8.decode(value, allowMalformed: true);
               _dataStreamController.add(text);
             });
+            _notifySubscriptions.add(sub);
           }
           if (char.properties.write || char.properties.writeWithoutResponse) {
             _writeCharacteristic = char;
@@ -167,10 +182,52 @@ class BleService {
       }
 
       _updateState(BleConnectionState.connected);
+
+      // Execute ELM327 initialization handshake sequence
+      await _runElm327InitSequence();
+
+      // Start hardware polling loop for continuous live telemetry
+      _startHardwarePollingLoop();
     } catch (e) {
       _updateState(BleConnectionState.error);
       disconnect();
     }
+  }
+
+  Future<void> _runElm327InitSequence() async {
+    _dataStreamController.add('[SYSTEM] Starting ELM327 protocol handshake...');
+    for (final cmd in Elm327Protocol.initCommands) {
+      if (_state != BleConnectionState.connected) break;
+      await sendCommand(cmd);
+      await Future.delayed(const Duration(milliseconds: 150));
+    }
+    _dataStreamController.add('[SYSTEM] ELM327 handshake complete. Protocol locked.');
+  }
+
+  void _startHardwarePollingLoop() {
+    _hardwarePollingTimer?.cancel();
+    int cycle = 0;
+    _hardwarePollingTimer = Timer.periodic(const Duration(milliseconds: 150), (timer) async {
+      if (_state != BleConnectionState.connected || _writeCharacteristic == null) {
+        timer.cancel();
+        return;
+      }
+      cycle++;
+      try {
+        // High frequency: RPM & TPS
+        if (cycle % 2 == 1) {
+          await sendCommand('010C');
+        } else {
+          await sendCommand('0111');
+        }
+        // Medium/Low frequency: MAP & ECT
+        if (cycle % 6 == 0) {
+          await sendCommand('010B');
+        } else if (cycle % 10 == 0) {
+          await sendCommand('0105');
+        }
+      } catch (_) {}
+    });
   }
 
   Future<void> sendCommand(String cmd) async {
@@ -189,6 +246,14 @@ class BleService {
   void _startMockDataStream() {
     _mockTimer?.cancel();
     int count = 0;
+
+    // Simulate initial handshake responses
+    _dataStreamController.add('>ATZ\rELM327 v1.5\r');
+    _dataStreamController.add('>ATE0\rOK\r');
+    _dataStreamController.add('>ATL0\rOK\r');
+    _dataStreamController.add('>ATH1\rOK\r');
+    _dataStreamController.add('>ATSP6\rOK\r');
+
     _mockTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
       if (_state != BleConnectionState.connected) {
         timer.cancel();
@@ -228,8 +293,15 @@ class BleService {
   Future<void> disconnect() async {
     _mockTimer?.cancel();
     _mockTimer = null;
-    _notifySubscription?.cancel();
-    _notifySubscription = null;
+    _hardwarePollingTimer?.cancel();
+    _hardwarePollingTimer = null;
+    _deviceStateSubscription?.cancel();
+    _deviceStateSubscription = null;
+
+    for (final sub in _notifySubscriptions) {
+      sub.cancel();
+    }
+    _notifySubscriptions.clear();
 
     try {
       await _connectedDevice?.disconnect();
