@@ -1,11 +1,31 @@
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 
-enum ToastType { info, success, warning, error }
+/// Defines toast notification intent categories.
+enum ToastType {
+  /// Informational status toast.
+  info,
 
+  /// Successful action completion toast.
+  success,
+
+  /// Warning condition toast.
+  warning,
+
+  /// Error failure notification toast.
+  error,
+}
+
+/// Service providing top-centered floating toast notifications.
 class ToastService {
   static OverlayEntry? _currentEntry;
 
+  /// Displays a floating toast bubble anchored at the top center of the screen.
+  ///
+  /// [context] is the current [BuildContext].
+  /// [message] is the string payload to present.
+  /// [type] defines the color accent and icon semantics.
+  /// [duration] controls how long the bubble remains visible.
   static void show(
     BuildContext context,
     String message, {
@@ -15,11 +35,11 @@ class ToastService {
     _currentEntry?.remove();
     _currentEntry = null;
 
-    final overlay = Overlay.maybeOf(context);
+    final OverlayState? overlay = Overlay.maybeOf(context);
     if (overlay == null) return;
 
-    final entry = OverlayEntry(
-      builder: (ctx) => _ToastWidget(
+    final OverlayEntry entry = OverlayEntry(
+      builder: (BuildContext overlayContext) => _ToastWidget(
         message: message,
         type: type,
         onDismiss: () {
@@ -32,7 +52,7 @@ class ToastService {
     _currentEntry = entry;
     overlay.insert(entry);
 
-    Future.delayed(duration, () {
+    Future<void>.delayed(duration, () {
       if (_currentEntry == entry) {
         entry.remove();
         _currentEntry = null;
@@ -41,6 +61,7 @@ class ToastService {
   }
 }
 
+/// Internal animated toast presentation widget.
 class _ToastWidget extends StatefulWidget {
   final String message;
   final ToastType type;
@@ -71,7 +92,7 @@ class _ToastWidgetState extends State<_ToastWidget>
     );
     _fadeAnimation = CurvedAnimation(parent: _controller, curve: Curves.easeOut);
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, -0.5),
+      begin: const Offset(0.0, -0.5),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
@@ -112,13 +133,13 @@ class _ToastWidgetState extends State<_ToastWidget>
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = _getAccentColor();
-    final topPadding = MediaQuery.of(context).padding.top + 16;
+    final Color accentColor = _getAccentColor();
+    final double topPadding = MediaQuery.of(context).padding.top + 16.0;
 
     return Positioned(
       top: topPadding,
-      left: 20,
-      right: 20,
+      left: 20.0,
+      right: 20.0,
       child: Center(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -127,30 +148,30 @@ class _ToastWidgetState extends State<_ToastWidget>
             child: Material(
               color: Colors.transparent,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
                 decoration: BoxDecoration(
                   color: GitHubTheme.canvasSubtle,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(24.0),
                   border: Border.all(color: accentColor.withValues(alpha: 0.6), width: 1.2),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      blurRadius: 12.0,
+                      offset: const Offset(0.0, 4.0),
                     ),
                   ],
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_getIcon(), size: 18, color: accentColor),
-                    const SizedBox(width: 8),
+                    Icon(_getIcon(), size: 18.0, color: accentColor),
+                    const SizedBox(width: 8.0),
                     Flexible(
                       child: Text(
                         widget.message,
                         style: const TextStyle(
                           fontFamily: GitHubTheme.fontGoogleSans,
-                          fontSize: 13,
+                          fontSize: 13.0,
                           fontWeight: FontWeight.w500,
                           color: GitHubTheme.fgDefault,
                         ),

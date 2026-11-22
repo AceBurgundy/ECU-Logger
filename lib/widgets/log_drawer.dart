@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 
+/// Collapsible bottom monospace drawer displaying real-time raw frame logs.
 class LogDrawer extends StatefulWidget {
+  /// Rolling list of log output strings.
   final List<String> logs;
+
+  /// Callback triggered when the clear log button is clicked.
   final VoidCallback onClear;
 
+  /// Creates a [LogDrawer] instance.
   const LogDrawer({
     super.key,
     required this.logs,
@@ -46,7 +51,7 @@ class _LogDrawerState extends State<LogDrawer> {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
-      height: _isExpanded ? 260 : 48,
+      height: _isExpanded ? 260.0 : 48.0,
       decoration: const BoxDecoration(
         color: GitHubTheme.canvasInset,
         border: Border(
@@ -59,8 +64,8 @@ class _LogDrawerState extends State<LogDrawer> {
           InkWell(
             onTap: () => setState(() => _isExpanded = !_isExpanded),
             child: Container(
-              height: 47,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              height: 47.0,
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
               color: GitHubTheme.canvasSubtle,
               child: Row(
                 children: [
@@ -69,14 +74,14 @@ class _LogDrawerState extends State<LogDrawer> {
                         ? Icons.keyboard_arrow_down_rounded
                         : Icons.keyboard_arrow_up_rounded,
                     color: GitHubTheme.fgMuted,
-                    size: 20,
+                    size: 20.0,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 8.0),
                   Text(
                     'CONSOLE LOG (${widget.logs.length})',
                     style: const TextStyle(
                       fontFamily: GitHubTheme.fontGoogleSansCode,
-                      fontSize: 12,
+                      fontSize: 12.0,
                       fontWeight: FontWeight.w600,
                       color: GitHubTheme.fgDefault,
                       letterSpacing: 0.5,
@@ -85,18 +90,18 @@ class _LogDrawerState extends State<LogDrawer> {
                   const Spacer(),
                   if (_isExpanded) ...[
                     IconButton(
-                      icon: const Icon(Icons.delete_outline, size: 18),
+                      icon: const Icon(Icons.delete_outline, size: 18.0),
                       color: GitHubTheme.fgSubtle,
                       tooltip: 'Clear Console',
                       onPressed: widget.onClear,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 12.0),
                   ],
                   Container(
-                    width: 8,
-                    height: 8,
+                    width: 8.0,
+                    height: 8.0,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: widget.logs.isNotEmpty
@@ -118,24 +123,24 @@ class _LogDrawerState extends State<LogDrawer> {
                         'Awaiting telemetry frames...',
                         style: TextStyle(
                           fontFamily: GitHubTheme.fontGoogleSansCode,
-                          fontSize: 12,
+                          fontSize: 12.0,
                           color: GitHubTheme.fgSubtle,
                         ),
                       ),
                     )
                   : ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 8.0),
                       itemCount: widget.logs.length,
-                      itemBuilder: (context, index) {
-                        final line = widget.logs[index];
+                      itemBuilder: (BuildContext listContext, int index) {
+                        final String line = widget.logs[index];
                         return Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2.0),
                           child: Text(
                             line,
                             style: TextStyle(
                               fontFamily: GitHubTheme.fontGoogleSansCode,
-                              fontSize: 11,
+                              fontSize: 11.0,
                               color: line.startsWith('[SYSTEM]')
                                   ? GitHubTheme.accent
                                   : (line.startsWith('770') || line.startsWith('212')

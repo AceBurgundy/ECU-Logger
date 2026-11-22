@@ -1,3 +1,11 @@
+// ECU = Electronic Control Unit
+// FAB = Floating Action Button
+// RPM = Revolutions Per Minute
+// TPS = Throttle Position Sensor
+// MAP = Manifold Absolute Pressure
+// VE = Volumetric Efficiency
+// ECT = Engine Coolant Temperature
+// VVA = Variable Valve Actuation
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../services/ble_service.dart';
@@ -9,7 +17,10 @@ import '../widgets/bluetooth_dialog.dart';
 import '../widgets/lock_overlay.dart';
 import '../widgets/toast_overlay.dart';
 
+/// Primary dashboard screen providing the Option 3 layout with 6 digital readout cards,
+/// collapsible console log drawer, pocket touch lock overlay, and status-colored FABs.
 class HomeScreen extends StatefulWidget {
+  /// Creates the [HomeScreen] widget.
   const HomeScreen({super.key});
 
   @override
@@ -69,13 +80,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _showBluetoothDialog() {
     showDialog(
       context: context,
-      builder: (ctx) => const BluetoothDialog(),
+      builder: (BuildContext dialogContext) => const BluetoothDialog(),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final data = _telemetry.currentData;
+    final TelemetryData data = _telemetry.currentData;
 
     return Scaffold(
       backgroundColor: GitHubTheme.canvasDefault,
@@ -83,24 +94,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         title: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(6.0),
               decoration: BoxDecoration(
                 color: GitHubTheme.canvasInset,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(8.0),
                 border: Border.all(color: GitHubTheme.borderMuted),
               ),
-              child: const Icon(Icons.speed, size: 20, color: GitHubTheme.accent),
+              child: const Icon(Icons.speed, size: 20.0, color: GitHubTheme.accent),
             ),
-            const SizedBox(width: 12),
-            const Text('ecu_logger'),
+            const SizedBox(width: 12.0),
+            const Text(
+              'ECU Logger',
+              style: TextStyle(
+                fontFamily: GitHubTheme.fontCanela,
+                fontSize: 20.0,
+                fontWeight: FontWeight.w700,
+                color: GitHubTheme.fgDefault,
+              ),
+            ),
           ],
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.folder_outlined, size: 20),
+            icon: const Icon(Icons.folder_outlined, size: 20.0),
             tooltip: 'Log Storage Path',
             onPressed: () {
-              final path = _fileLogger.logDirectoryPath ?? 'App Documents / ecu_logs';
+              final String path = _fileLogger.logDirectoryPath ?? 'App Documents / ecu_logs';
               ToastService.show(
                 context,
                 'Storage Path: $path',
@@ -108,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               );
             },
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 8.0),
         ],
       ),
       body: Stack(
@@ -122,9 +141,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
                   child: GridView.count(
                     crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.45,
+                    mainAxisSpacing: 12.0,
+                    crossAxisSpacing: 12.0,
+                    childAspectRatio: 1.35,
                     physics: const BouncingScrollPhysics(),
                     children: [
                       // 1. RPM
@@ -132,8 +151,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         label: 'Engine Speed',
                         value: data.rpm.toStringAsFixed(0),
                         unit: 'RPM',
-                        accentColor: data.rpm >= 7400 ? GitHubTheme.warningFg : GitHubTheme.accent,
-                        isHighlight: data.rpm >= 7400,
+                        accentColor: data.rpm >= 7400.0 ? GitHubTheme.warningFg : GitHubTheme.accent,
+                        isHighlight: data.rpm >= 7400.0,
                       ),
 
                       // 2. TPS %
@@ -155,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       // 4. VE %
                       MetricCard(
                         label: 'Volumetric Eff.',
-                        value: data.veCorrected > 0
+                        value: data.veCorrected > 0.0
                             ? data.veCorrected.toStringAsFixed(1)
                             : data.veDensity.toStringAsFixed(1),
                         unit: '%',
@@ -168,9 +187,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                         label: 'Coolant Temp',
                         value: data.ectC.toStringAsFixed(1),
                         unit: '°C',
-                        accentColor: data.ectC >= 100
+                        accentColor: data.ectC >= 100.0
                             ? GitHubTheme.dangerFg
-                            : (data.ectC >= 60 ? GitHubTheme.successFg : GitHubTheme.fgMuted),
+                            : (data.ectC >= 60.0 ? GitHubTheme.successFg : GitHubTheme.fgMuted),
                       ),
 
                       // 6. VVA Status
@@ -216,9 +235,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           : StreamBuilder<BleConnectionState>(
               stream: _ble.stateStream,
               initialData: _ble.currentState,
-              builder: (context, snap) {
-                final state = snap.data ?? BleConnectionState.disconnected;
-                final fabColor = _getBleFabColor(state);
+              builder: (BuildContext fabContext, AsyncSnapshot<BleConnectionState> snapshot) {
+                final BleConnectionState state = snapshot.data ?? BleConnectionState.disconnected;
+                final Color fabColor = _getBleFabColor(state);
 
                 return Row(
                   mainAxisSize: MainAxisSize.min,
@@ -239,9 +258,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                           type: ToastType.info,
                         );
                       },
-                      child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20),
+                      child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20.0),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 12.0),
 
                     // Bluetooth FAB (changes color based on status)
                     FloatingActionButton(
