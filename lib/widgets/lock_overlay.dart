@@ -107,11 +107,15 @@ class _LockOverlayState extends State<LockOverlay> {
       width: double.infinity,
       height: double.infinity,
       // 100% visible translucent overlay (pocket touch protection)
-      color: GitHubTheme.canvasDefault.withValues(alpha: 0.82),
+      color: GitHubTheme.canvasDefault.withValues(alpha: 0.40),
       child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+        child: Center(
+          child: SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
             // Shield Icon & Header
             Container(
               padding: const EdgeInsets.all(12),
@@ -258,6 +262,8 @@ class _LockOverlayState extends State<LockOverlay> {
           ],
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }
