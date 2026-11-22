@@ -1,0 +1,36 @@
+name: ecu_logger
+description: "Motorcycle CAN Bus and OBD-II Telemetry Logger."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_blue_plus: ^2.1.0
+  permission_handler: ^12.0.1
+  path_provider: ^2.1.5
+  intl: ^0.20.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
+
+  fonts:
+    - family: Canela
+      fonts:
+        - asset: assets/fonts/Canela-Regular.otf
+    - family: Google Sans
+      fonts:
+        - asset: assets/fonts/GoogleSans-Regular.ttf
+    - family: Google Sans Code
+      fonts:
+        - asset: assets/fonts/GoogleSansCode-Regular.ttf
