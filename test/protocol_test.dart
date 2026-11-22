@@ -88,5 +88,28 @@ void main() {
       expect(Elm327Protocol.parseMode01Rpm('NO DATA'), isNull);
       expect(Elm327Protocol.parseMode01Tps('41'), isNull);
     });
+
+    test('Parses unspaced Yamaha CAN frames', () {
+      // 770081F40800000000000 (Header: 770, DLC: 08, Payload: 1F 40 80 00 00 00 00 00 -> RPM = 2000, TPS = 50.2)
+      const String unspaced770 = '770081F40800000000000';
+      final Map<String, dynamic>? parsed770 = Elm327Protocol.parseRawCanFrame(unspaced770);
+      expect(parsed770, isNotNull);
+      expect(parsed770!['rpm'], equals(2000.0));
+      expect(parsed770['tps'], closeTo(50.2, 0.1));
+
+      // 2120401000000 (Header: 212, DLC: 04, Payload: 01 00 00 00 -> VVA active)
+      const String unspaced212 = '2120401000000';
+      final Map<String, dynamic>? parsed212 = Elm327Protocol.parseRawCanFrame(unspaced212);
+      expect(parsed212, isNotNull);
+      expect(parsed212!['vva'], isTrue);
+    });
+
+    test('Parses Mode 01 PID with CAN 7E8 header and prompt artifacts', () {
+      const String responseWithHeader = '7E8 04 41 0C 1F 40\r>';
+      expect(Elm327Protocol.parseMode01Rpm(responseWithHeader), equals(2000.0));
+
+      const String compactWithHeader = '7E804410C1F40>';
+      expect(Elm327Protocol.parseMode01Rpm(compactWithHeader), equals(2000.0));
+    });
   });
 }

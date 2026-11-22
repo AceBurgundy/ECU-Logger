@@ -1,12 +1,13 @@
 // OBD = On-Board Diagnostics
 // BLE = Bluetooth Low Energy
+// RSSI = Received Signal Strength Indicator
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../services/ble_service.dart';
 import 'toast_overlay.dart';
 
 /// Modal dialog allowing the rider to scan, select, and connect to or disconnect
-/// from an OBD-II Bluetooth peripheral adapter.
+/// from an OBD-II Bluetooth peripheral adapter, prioritizing detected OBD scanners.
 class BluetoothDialog extends StatefulWidget {
   /// Creates a [BluetoothDialog] instance.
   const BluetoothDialog({super.key});
@@ -17,6 +18,7 @@ class BluetoothDialog extends StatefulWidget {
 
 class _BluetoothDialogState extends State<BluetoothDialog> {
   final BleService _ble = BleService.instance;
+  bool _showUnknownDevices = false;
 
   @override
   void initState() {
@@ -24,6 +26,112 @@ class _BluetoothDialogState extends State<BluetoothDialog> {
     if (_ble.currentState != BleConnectionState.connected) {
       _ble.startScan();
     }
+  }
+
+  Widget _buildDeviceTile({
+    required BleDiscoveredDevice deviceItem,
+    required BleConnectionState state,
+    required bool isHighlighted,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 3.0),
+      decoration: BoxDecoration(
+        color: isHighlighted
+            ? GitHubTheme.accentEmphasis.withValues(alpha: 0.12)
+            : GitHubTheme.canvasInset,
+        borderRadius: BorderRadius.circular(8.0),
+        border: Border.all(
+          color: isHighlighted
+              ? GitHubTheme.accent.withValues(alpha: 0.6)
+              : GitHubTheme.borderMuted,
+          width: isHighlighted ? 1.2 : 0.8,
+        ),
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 2.0),
+        leading: Container(
+          padding: const EdgeInsets.all(6.0),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: isHighlighted
+                ? GitHubTheme.accent.withValues(alpha: 0.2)
+                : GitHubTheme.canvasSubtle,
+          ),
+          child: Icon(
+            deviceItem.isObd ? Icons.speed_rounded : Icons.bluetooth,
+            color: isHighlighted ? GitHubTheme.accent : GitHubTheme.fgMuted,
+            size: 18.0,
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                deviceItem.name,
+                style: TextStyle(
+                  fontFamily: GitHubTheme.fontGoogleSans,
+                  fontSize: 13.0,
+                  fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
+                  color: isHighlighted ? GitHubTheme.accent : GitHubTheme.fgDefault,
+                ),
+              ),
+            ),
+            if (deviceItem.isObd) ...[
+              const SizedBox(width: 6.0),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 1.5),
+                decoration: BoxDecoration(
+                  color: GitHubTheme.accent.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(4.0),
+                  border: Border.all(color: GitHubTheme.accent, width: 0.8),
+                ),
+                child: const Text(
+                  'OBD-II',
+                  style: TextStyle(
+                    fontFamily: GitHubTheme.fontGoogleSansCode,
+                    fontSize: 9.0,
+                    fontWeight: FontWeight.w700,
+                    color: GitHubTheme.accent,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        subtitle: Text(
+          '${deviceItem.id}  •  ${deviceItem.rssi} dBm',
+          style: const TextStyle(
+            fontFamily: GitHubTheme.fontGoogleSansCode,
+            fontSize: 10.0,
+            color: GitHubTheme.fgSubtle,
+          ),
+        ),
+        trailing: state == BleConnectionState.connecting
+            ? const SizedBox(
+                width: 16.0,
+                height: 16.0,
+                child: CircularProgressIndicator(strokeWidth: 2.0),
+              )
+            : const Icon(
+                Icons.chevron_right,
+                color: GitHubTheme.fgMuted,
+                size: 18.0,
+              ),
+        onTap: state == BleConnectionState.connecting
+            ? null
+            : () async {
+                await _ble.connectToDevice(deviceItem);
+                if (!mounted) return;
+                ToastService.show(
+                  context,
+                  'Connected to ${deviceItem.name}! Logging started.',
+                  type: ToastType.success,
+                );
+                Navigator.of(context).pop(true);
+              },
+      ),
+    );
   }
 
   @override
@@ -35,7 +143,7 @@ class _BluetoothDialogState extends State<BluetoothDialog> {
         side: const BorderSide(color: GitHubTheme.borderDefault),
       ),
       child: Container(
-        width: 380.0,
+        width: 400.0,
         padding: const EdgeInsets.all(20.0),
         child: StreamBuilder<BleConnectionState>(
           stream: _ble.stateStream,
@@ -139,13 +247,13 @@ class _BluetoothDialogState extends State<BluetoothDialog> {
                             'Disconnected from OBD-II adapter',
                             type: ToastType.info,
                           );
-                          Navigator.of(context).pop();
+                          Navigator.of(context).pop(false);
                         }
                       },
                     ),
                   ),
                 ] else ...[
-                  // Scanning & Discovered List
+                  // Scanning & Discovered List Header
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -193,8 +301,8 @@ class _BluetoothDialogState extends State<BluetoothDialog> {
                     initialData: _ble.discoveredDevices,
                     builder: (BuildContext listContext,
                         AsyncSnapshot<List<BleDiscoveredDevice>> deviceSnapshot) {
-                      final List<BleDiscoveredDevice> devices = deviceSnapshot.data ?? [];
-                      if (devices.isEmpty) {
+                      final List<BleDiscoveredDevice> allDevices = deviceSnapshot.data ?? [];
+                      if (allDevices.isEmpty) {
                         return Container(
                           height: 120.0,
                           alignment: Alignment.center,
@@ -211,74 +319,77 @@ class _BluetoothDialogState extends State<BluetoothDialog> {
                         );
                       }
 
-                      return ConstrainedBox(
-                        constraints: const BoxConstraints(maxHeight: 220.0),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: devices.length,
-                          separatorBuilder: (BuildContext separatorContext, int index) =>
-                              const Divider(
-                            color: GitHubTheme.borderMuted,
-                            height: 1.0,
-                          ),
-                          itemBuilder: (BuildContext itemContext, int index) {
-                            final BleDiscoveredDevice deviceItem = devices[index];
-                            final bool isNexLink = deviceItem.id.contains('8C:DE:52:DF:42:C3') ||
-                                deviceItem.name.toLowerCase().contains('nexas') ||
-                                deviceItem.name.toLowerCase().contains('nexlink');
+                      final List<BleDiscoveredDevice> obdDevices =
+                          allDevices.where((BleDiscoveredDevice d) => d.isObd).toList();
+                      final List<BleDiscoveredDevice> otherNamedDevices = allDevices
+                          .where((BleDiscoveredDevice d) =>
+                              !d.isObd && d.name.isNotEmpty && d.name != 'Unknown BLE Device')
+                          .toList();
+                      final List<BleDiscoveredDevice> unknownDevices = allDevices
+                          .where((BleDiscoveredDevice d) =>
+                              !d.isObd && (d.name.isEmpty || d.name == 'Unknown BLE Device'))
+                          .toList();
 
-                            return ListTile(
-                              contentPadding:
-                                  const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
-                              leading: Icon(
-                                Icons.settings_input_antenna,
-                                color: isNexLink ? GitHubTheme.accent : GitHubTheme.fgMuted,
-                                size: 20.0,
-                              ),
-                              title: Text(
-                                deviceItem.name,
-                                style: TextStyle(
-                                  fontFamily: GitHubTheme.fontGoogleSans,
-                                  fontSize: 13.0,
-                                  fontWeight: isNexLink ? FontWeight.w600 : FontWeight.w400,
-                                  color: isNexLink ? GitHubTheme.accent : GitHubTheme.fgDefault,
-                                ),
-                              ),
-                              subtitle: Text(
-                                '${deviceItem.id}  (${deviceItem.rssi} dBm)',
-                                style: const TextStyle(
-                                  fontFamily: GitHubTheme.fontGoogleSansCode,
-                                  fontSize: 10.0,
-                                  color: GitHubTheme.fgSubtle,
-                                ),
-                              ),
-                              trailing: state == BleConnectionState.connecting
-                                  ? const SizedBox(
-                                      width: 16.0,
-                                      height: 16.0,
-                                      child: CircularProgressIndicator(strokeWidth: 2.0),
-                                    )
-                                  : const Icon(
-                                      Icons.chevron_right,
-                                      color: GitHubTheme.fgMuted,
-                                      size: 18.0,
+                      final List<BleDiscoveredDevice> displayedDevices = <BleDiscoveredDevice>[
+                        ...obdDevices,
+                        ...otherNamedDevices,
+                        if (_showUnknownDevices) ...unknownDevices,
+                      ];
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 250.0),
+                            child: ListView.builder(
+                              shrinkWrap: true,
+                              physics: const BouncingScrollPhysics(),
+                              itemCount: displayedDevices.length,
+                              itemBuilder: (BuildContext itemContext, int index) {
+                                final BleDiscoveredDevice deviceItem = displayedDevices[index];
+                                return _buildDeviceTile(
+                                  deviceItem: deviceItem,
+                                  state: state,
+                                  isHighlighted: deviceItem.isObd,
+                                );
+                              },
+                            ),
+                          ),
+                          if (unknownDevices.isNotEmpty) ...[
+                            const SizedBox(height: 6.0),
+                            InkWell(
+                              onTap: () {
+                                setState(() => _showUnknownDevices = !_showUnknownDevices);
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _showUnknownDevices
+                                          ? Icons.visibility_off_outlined
+                                          : Icons.visibility_outlined,
+                                      size: 14.0,
+                                      color: GitHubTheme.fgSubtle,
                                     ),
-                              onTap: state == BleConnectionState.connecting
-                                  ? null
-                                  : () async {
-                                      await _ble.connectToDevice(deviceItem);
-                                      if (context.mounted) {
-                                        ToastService.show(
-                                          context,
-                                          'Connected to ${deviceItem.name}! Logging started.',
-                                          type: ToastType.success,
-                                        );
-                                        Navigator.of(context).pop();
-                                      }
-                                    },
-                            );
-                          },
-                        ),
+                                    const SizedBox(width: 6.0),
+                                    Text(
+                                      _showUnknownDevices
+                                          ? 'Hide ${unknownDevices.length} unknown BLE devices'
+                                          : 'Show ${unknownDevices.length} unnamed devices',
+                                      style: const TextStyle(
+                                        fontFamily: GitHubTheme.fontGoogleSans,
+                                        fontSize: 11.0,
+                                        color: GitHubTheme.fgSubtle,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
                       );
                     },
                   ),

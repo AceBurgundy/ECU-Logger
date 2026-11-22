@@ -3,13 +3,16 @@
 // CSV = Comma-Separated Values
 // JSON = JavaScript Object Notation
 // VE = Volumetric Efficiency
+import 'dart:convert';
 import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/remap_matrix.dart';
 
 /// Service managing disk logging for raw CAN frames, telemetry CSV rows,
-/// and accumulated remap matrices.
+/// and accumulated remap matrices, with support for customizable folder selection.
 class FileLoggerService {
   /// Singleton instance of [FileLoggerService].
   static final FileLoggerService instance = FileLoggerService._internal();
@@ -20,17 +23,121 @@ class FileLoggerService {
   File? _matrixFile;
 
   String? _sessionTimestamp;
-  String? _logDirectoryPath;
+  String? _customLogDirectoryPath;
   bool _isLogging = false;
+
+  /// Configuration file name for storing user-chosen log directory.
+  static const String _configFileName = 'ecu_logger_storage_config.json';
 
   /// Whether a logging session is actively open on disk.
   bool get isLogging => _isLogging;
 
   /// Absolute filesystem path to the directory where active logs are written.
-  String? get logDirectoryPath => _logDirectoryPath;
+  String? get logDirectoryPath => _customLogDirectoryPath;
+
+  /// Whether a valid custom directory has already been selected by the user.
+  bool get hasConfiguredFolder =>
+      _customLogDirectoryPath != null &&
+      _customLogDirectoryPath!.isNotEmpty &&
+      Directory(_customLogDirectoryPath!).existsSync();
+
+  /// Initializes storage settings by restoring previously selected directory.
+  Future<void> initialize() async {
+    try {
+      final Directory baseDirectory = await getApplicationDocumentsDirectory();
+      final File configFile = File('${baseDirectory.path}/$_configFileName');
+      if (await configFile.exists()) {
+        final String contents = await configFile.readAsString();
+        // dynamic required here: JSON decode returns untyped map structure
+        final dynamic decoded = jsonDecode(contents);
+        if (decoded is Map<String, dynamic> && decoded['log_path'] is String) {
+          final String restoredPath = decoded['log_path'] as String;
+          if (await Directory(restoredPath).exists()) {
+            _customLogDirectoryPath = restoredPath;
+          }
+        }
+      }
+    } catch (exception) {
+      // Ignore config read exceptions on initial startup
+    }
+  }
+
+  /// Persists the custom log directory path to application storage.
+  Future<void> _persistConfig(String directoryPath) async {
+    try {
+      final Directory baseDirectory = await getApplicationDocumentsDirectory();
+      final File configFile = File('${baseDirectory.path}/$_configFileName');
+      final Map<String, String> payload = <String, String>{
+        'log_path': directoryPath,
+      };
+      await configFile.writeAsString(jsonEncode(payload));
+    } catch (exception) {
+      // Ignore background persistence errors
+    }
+  }
+
+  /// Explicitly requests runtime storage and external management permissions.
+  Future<bool> requestStoragePermissions() async {
+    try {
+      if (Platform.isAndroid) {
+        final PermissionStatus manageStatus =
+            await Permission.manageExternalStorage.status;
+        if (manageStatus.isGranted) {
+          return true;
+        }
+        final PermissionStatus requestManage =
+            await Permission.manageExternalStorage.request();
+        if (requestManage.isGranted) {
+          return true;
+        }
+        final PermissionStatus storageStatus = await Permission.storage.request();
+        return storageStatus.isGranted || storageStatus.isLimited;
+      }
+      return true;
+    } catch (exception) {
+      return true; // Desktop / simulated environment fallback
+    }
+  }
+
+  /// Opens the native system folder picker with the existing path as initialDirectory.
+  ///
+  /// Returns the newly chosen folder path string, or null if the user cancelled.
+  Future<String?> pickLogDirectory() async {
+    await requestStoragePermissions();
+
+    final String? selectedDirectory = await FilePickerPlatform.instance.getDirectoryPath(
+      dialogTitle: 'Select ECU Telemetry Log Folder',
+      initialDirectory: _customLogDirectoryPath,
+    );
+
+    if (selectedDirectory != null && selectedDirectory.isNotEmpty) {
+      final Directory targetDir = Directory(selectedDirectory);
+      if (!await targetDir.exists()) {
+        await targetDir.create(recursive: true);
+      }
+      _customLogDirectoryPath = selectedDirectory;
+      await _persistConfig(selectedDirectory);
+      return selectedDirectory;
+    }
+
+    return null;
+  }
+
+  /// Sets the custom log directory directly without opening the picker.
+  Future<void> setCustomLogDirectory(String path) async {
+    final Directory directory = Directory(path);
+    if (!await directory.exists()) {
+      await directory.create(recursive: true);
+    }
+    _customLogDirectoryPath = path;
+    await _persistConfig(path);
+  }
 
   /// Initializes file streams on disk for a new logging session.
-  Future<void> startSession() async {
+  ///
+  /// If [explicitDirectoryPath] is omitted and no custom folder was selected,
+  /// falls back to application documents storage.
+  Future<void> startSession({String? explicitDirectoryPath}) async {
     if (_isLogging) {
       await stopSession();
     }
@@ -38,18 +145,29 @@ class FileLoggerService {
     final DateTime now = DateTime.now();
     _sessionTimestamp = DateFormat('yyyyMMdd_HHmmss').format(now);
 
-    Directory baseDir;
-    try {
-      baseDir = await getApplicationDocumentsDirectory();
-    } catch (exception) {
-      baseDir = Directory.current;
+    String targetBasePath;
+    if (explicitDirectoryPath != null && explicitDirectoryPath.isNotEmpty) {
+      targetBasePath = explicitDirectoryPath;
+    } else if (_customLogDirectoryPath != null && _customLogDirectoryPath!.isNotEmpty) {
+      targetBasePath = _customLogDirectoryPath!;
+    } else {
+      Directory baseDir;
+      try {
+        baseDir = await getApplicationDocumentsDirectory();
+      } catch (exception) {
+        baseDir = Directory.current;
+      }
+      targetBasePath = '${baseDir.path}/ecu_logs';
     }
 
-    final Directory logsDir = Directory('${baseDir.path}/ecu_logs');
+    final Directory logsDir = Directory(targetBasePath);
     if (!await logsDir.exists()) {
       await logsDir.create(recursive: true);
     }
-    _logDirectoryPath = logsDir.path;
+    if (explicitDirectoryPath != null && explicitDirectoryPath.isNotEmpty) {
+      _customLogDirectoryPath = explicitDirectoryPath;
+      await _persistConfig(explicitDirectoryPath);
+    }
 
     // 1. Raw CAN file
     final File rawCanFile = File('${logsDir.path}/raw_can_$_sessionTimestamp.log');
