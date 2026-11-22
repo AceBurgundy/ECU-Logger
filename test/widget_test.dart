@@ -54,6 +54,7 @@ void main() {
     expect(find.text('CLR'), findsOneWidget);
     expect(find.text('1'), findsOneWidget);
     expect(find.text('9'), findsOneWidget);
+    expect(find.byType(SingleChildScrollView), findsOneWidget);
 
     // Pump through toast timers
     await tester.pump(const Duration(seconds: 4));

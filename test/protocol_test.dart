@@ -61,5 +61,22 @@ void main() {
       expect(parsedInactive, isNotNull);
       expect(parsedInactive!['vva'], isFalse);
     });
+
+    test('Verifies ELM327 initialization command sequence', () {
+      expect(Elm327Protocol.initCommands, contains('ATZ'));
+      expect(Elm327Protocol.initCommands, contains('ATE0'));
+      expect(Elm327Protocol.initCommands, contains('ATL0'));
+      expect(Elm327Protocol.initCommands, contains('ATH1'));
+      expect(Elm327Protocol.initCommands, contains('ATSP6'));
+      expect(Elm327Protocol.initCommands.length, equals(5));
+    });
+
+    test('Handles malformed or empty CAN frame gracefully', () {
+      expect(Elm327Protocol.parseRawCanFrame(''), isNull);
+      expect(Elm327Protocol.parseRawCanFrame('INVALID_HEX_DATA'), isNull);
+      expect(Elm327Protocol.parseRawCanFrame('770'), isNull);
+      expect(Elm327Protocol.parseMode01Rpm('NO DATA'), isNull);
+      expect(Elm327Protocol.parseMode01Tps('41'), isNull);
+    });
   });
 }
