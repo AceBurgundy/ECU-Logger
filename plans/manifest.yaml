@@ -1,0 +1,5 @@
+schema_version: "manifest.v1"
+project_name: "ecu_logger"
+generated_at: "2026-11-22T04:48:52.940989+00:00"
+target_commit: ""
+steps: []
