@@ -32,6 +32,23 @@ void main() {
       expect(find.text('Save'), findsOneWidget);
       expect(find.byIcon(Icons.check_rounded), findsWidgets);
       expect(find.byIcon(Icons.close_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.format_size_rounded), findsOneWidget);
+
+      // Initially no card is active so edit active card button is disabled/dim
+      final FloatingActionButton editCardFabBefore = tester.widget<FloatingActionButton>(
+        find.byWidgetPredicate((w) => w is FloatingActionButton && w.heroTag == 'edit_active_card_fab'),
+      );
+      expect(editCardFabBefore.onPressed, isNull);
+
+      // Tap a card to activate it
+      await tester.tap(find.text('ENGINE SPEED'));
+      await tester.pump();
+
+      final FloatingActionButton editCardFabAfter = tester.widget<FloatingActionButton>(
+        find.byWidgetPredicate((w) => w is FloatingActionButton && w.heroTag == 'edit_active_card_fab'),
+      );
+      expect(editCardFabAfter.onPressed, isNotNull);
+      expect(editCardFabAfter.backgroundColor, equals(const Color(0xFFCCFF00)));
 
       // Advance past toast duration so button is hit-testable
       await tester.pump(const Duration(seconds: 4));

@@ -56,6 +56,12 @@ class MetricCard extends StatelessWidget {
   /// Optional callback when a corner resize handle drag completes.
   final void Function(DragEndDetails details, Alignment corner)? onCornerDragEnd;
 
+  /// Optional callback for dragging edge resize handles.
+  final void Function(DragUpdateDetails details, Alignment edge)? onEdgeDragUpdate;
+
+  /// Optional callback when an edge resize handle drag completes.
+  final void Function(DragEndDetails details, Alignment edge)? onEdgeDragEnd;
+
   /// Creates a [MetricCard] instance.
   const MetricCard({
     super.key,
@@ -74,6 +80,8 @@ class MetricCard extends StatelessWidget {
     this.onEditFontSizes,
     this.onCornerDragUpdate,
     this.onCornerDragEnd,
+    this.onEdgeDragUpdate,
+    this.onEdgeDragEnd,
   });
 
   @override
@@ -180,34 +188,6 @@ class MetricCard extends StatelessWidget {
                   ],
                 ),
               ),
-
-              // On-card Edit button (visible only on active card in Edit Mode)
-              if (isEditMode && isActive)
-                GestureDetector(
-                  onTap: onEditFontSizes,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFCCFF00),
-                      borderRadius: BorderRadius.circular(5.0),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.format_size_rounded, size: 12.0, color: Colors.black),
-                        SizedBox(width: 2.0),
-                        Text(
-                          'EDIT',
-                          style: TextStyle(
-                            fontSize: 9.0,
-                            fontWeight: FontWeight.w800,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
             ],
           ),
 
@@ -249,12 +229,79 @@ class MetricCard extends StatelessWidget {
 
           // 4 Draggable Corner Handles when selected active in Edit Mode (P3.T4)
           if (isEditMode && isActive) ...[
+            // Edge handles
+            _buildEdgeHandle(Alignment.centerLeft),
+            _buildEdgeHandle(Alignment.centerRight),
+            _buildEdgeHandle(Alignment.topCenter),
+            _buildEdgeHandle(Alignment.bottomCenter),
+            // Corner handles
             _buildCornerHandle(Alignment.topLeft),
             _buildCornerHandle(Alignment.topRight),
             _buildCornerHandle(Alignment.bottomLeft),
             _buildCornerHandle(Alignment.bottomRight),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildEdgeHandle(Alignment alignment) {
+    double? top;
+    double? bottom;
+    double? left;
+    double? right;
+
+    if (alignment == Alignment.centerLeft) {
+      left = -7.0;
+      top = 16.0;
+      bottom = 16.0;
+    } else if (alignment == Alignment.centerRight) {
+      right = -7.0;
+      top = 16.0;
+      bottom = 16.0;
+    } else if (alignment == Alignment.topCenter) {
+      top = -7.0;
+      left = 16.0;
+      right = 16.0;
+    } else if (alignment == Alignment.bottomCenter) {
+      bottom = -7.0;
+      left = 16.0;
+      right = 16.0;
+    }
+
+    final bool isHorizontal = (alignment == Alignment.topCenter || alignment == Alignment.bottomCenter);
+
+    return Positioned(
+      top: top,
+      bottom: bottom,
+      left: left,
+      right: right,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onPanUpdate: (DragUpdateDetails details) {
+          onEdgeDragUpdate?.call(details, alignment);
+        },
+        onPanEnd: (DragEndDetails details) {
+          onEdgeDragEnd?.call(details, alignment);
+        },
+        child: Center(
+          child: Container(
+            width: isHorizontal ? 32.0 : 6.0,
+            height: isHorizontal ? 6.0 : 32.0,
+            decoration: BoxDecoration(
+              color: const Color(0xFFCCFF00),
+              borderRadius: BorderRadius.circular(3.0),
+              border: Border.all(color: Colors.black, width: 1.0),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black54,
+                  blurRadius: 3.0,
+                  offset: Offset(0.0, 1.0),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -266,17 +313,17 @@ class MetricCard extends StatelessWidget {
     double? right;
 
     if (alignment == Alignment.topLeft) {
-      top = -6.0;
-      left = -6.0;
+      top = -8.0;
+      left = -8.0;
     } else if (alignment == Alignment.topRight) {
-      top = -6.0;
-      right = -6.0;
+      top = -8.0;
+      right = -8.0;
     } else if (alignment == Alignment.bottomLeft) {
-      bottom = -6.0;
-      left = -6.0;
+      bottom = -8.0;
+      left = -8.0;
     } else if (alignment == Alignment.bottomRight) {
-      bottom = -6.0;
-      right = -6.0;
+      bottom = -8.0;
+      right = -8.0;
     }
 
     return Positioned(
@@ -293,8 +340,8 @@ class MetricCard extends StatelessWidget {
           onCornerDragEnd?.call(details, alignment);
         },
         child: Container(
-          width: 16.0,
-          height: 16.0,
+          width: 20.0,
+          height: 20.0,
           decoration: BoxDecoration(
             color: const Color(0xFFCCFF00),
             shape: BoxShape.circle,

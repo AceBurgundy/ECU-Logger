@@ -11,6 +11,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../models/dashboard_layout.dart';
+import '../models/telemetry_metric.dart';
 import '../services/ble_service.dart';
 import '../services/telemetry_engine.dart';
 import '../services/file_logger_service.dart';
@@ -22,6 +23,7 @@ import '../widgets/toast_overlay.dart';
 import '../widgets/metric_selection_sheet.dart';
 import '../widgets/dashboard_flow_layout.dart';
 import '../widgets/saved_layouts_dialog.dart';
+import '../widgets/font_size_dialog.dart';
 
 /// Primary dashboard screen providing flush digital readouts, interactive Edit Mode,
 /// 2-column reflow layout with corner resizing, typography dialogs, saved layouts carousel,
@@ -43,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   bool _isScreenLocked = false;
   bool _isEditMode = false;
+  String? _activeMetricId;
   StreamSubscription<BleConnectionState>? _bleStateSubscription;
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
@@ -157,7 +160,10 @@ class _HomeScreenState extends State<HomeScreen>
       _layoutService.cancelEditMode();
       _shakeController.stop();
       _shakeController.reset();
-      setState(() => _isEditMode = false);
+      setState(() {
+        _isEditMode = false;
+        _activeMetricId = null;
+      });
       ToastService.show(
         context,
         'Layout changes discarded.',
@@ -170,7 +176,10 @@ class _HomeScreenState extends State<HomeScreen>
     await _layoutService.saveEditMode();
     _shakeController.stop();
     _shakeController.reset();
-    setState(() => _isEditMode = false);
+    setState(() {
+      _isEditMode = false;
+      _activeMetricId = null;
+    });
     if (mounted) {
       ToastService.show(
         context,
@@ -191,6 +200,34 @@ class _HomeScreenState extends State<HomeScreen>
         context,
         'OBD-II session disconnected.',
         type: ToastType.info,
+      );
+    }
+  }
+
+  Future<void> _handleEditActiveCardFontSizes() async {
+    if (_activeMetricId == null) return;
+    final CardConfig? card = _layoutService.displayCards
+        .where((CardConfig c) => c.metricId == _activeMetricId)
+        .firstOrNull;
+    final TelemetryMetric? metric = TelemetryMetric.findById(_activeMetricId!);
+    if (card == null || metric == null) return;
+
+    final ({double titleSize, double valueSize, double unitSize})? result =
+        await FontSizeDialog.show(
+      context: context,
+      cardTitle: metric.name,
+      currentTitleSize: card.titleFontSize ?? 10.5,
+      currentValueSize: card.valueFontSize ?? 28.0,
+      currentUnitSize: card.unitFontSize ?? 9.5,
+    );
+
+    if (result != null && mounted) {
+      _layoutService.updateCardConfig(
+        card.copyWith(
+          titleFontSize: result.titleSize,
+          valueFontSize: result.valueSize,
+          unitFontSize: result.unitSize,
+        ),
       );
     }
   }
@@ -380,17 +417,6 @@ class _HomeScreenState extends State<HomeScreen>
                 onPressed: _handleFolderPickerTap,
               ),
 
-              // Bluetooth Button on App Bar
-              IconButton(
-                icon: Icon(
-                  isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
-                  color: isConnected ? GitHubTheme.successFg : GitHubTheme.fgMuted,
-                  size: 20.0,
-                ),
-                tooltip: isConnected ? 'Connected to OBD-II' : 'Connect OBD-II',
-                onPressed: _showBluetoothDialog,
-              ),
-
               // Conditional Red Stop Button (Appears ONLY when actively connected - P2.T2)
               if (isConnected)
                 IconButton(
@@ -440,6 +466,10 @@ class _HomeScreenState extends State<HomeScreen>
                           isConnected: isConnected,
                           isEditMode: _isEditMode && !isFreezePreview,
                           shakeAnimation: _shakeAnimation,
+                          activeMetricId: _activeMetricId,
+                          onActiveMetricChanged: (String? id) {
+                            setState(() => _activeMetricId = id);
+                          },
                           onTriggerEditMode: () {
                             if (!isFreezePreview) _enterEditMode();
                           },
@@ -549,7 +579,8 @@ class _HomeScreenState extends State<HomeScreen>
     }
 
     if (_isEditMode) {
-      // Edit Mode Bottom Buttons: icon-only Cancel & Save (P3.T6)
+      // Edit Mode Bottom Buttons: Cancel (x), Active Card Edit (format_size), and Save (check)
+      final bool hasActiveCard = _activeMetricId != null;
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -563,6 +594,25 @@ class _HomeScreenState extends State<HomeScreen>
             tooltip: 'Cancel Edits',
             onPressed: _handleCancelEditPrompt,
             child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
+          ),
+          const SizedBox(width: 12.0),
+          FloatingActionButton(
+            heroTag: 'edit_active_card_fab',
+            mini: true,
+            backgroundColor: hasActiveCard ? const Color(0xFFCCFF00) : GitHubTheme.canvasSubtle,
+            shape: CircleBorder(
+              side: BorderSide(
+                color: hasActiveCard ? const Color(0xFFCCFF00) : GitHubTheme.borderMuted,
+                width: 1.5,
+              ),
+            ),
+            tooltip: hasActiveCard ? 'Customize Font Sizes' : 'Select a Card to Customize',
+            onPressed: hasActiveCard ? _handleEditActiveCardFontSizes : null,
+            child: Icon(
+              Icons.format_size_rounded,
+              color: hasActiveCard ? Colors.black : GitHubTheme.fgSubtle,
+              size: 20.0,
+            ),
           ),
           const SizedBox(width: 12.0),
           FloatingActionButton(

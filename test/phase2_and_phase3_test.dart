@@ -138,7 +138,6 @@ void main() {
       final BoxDecoration decoration = container.decoration as BoxDecoration;
       final Border border = decoration.border as Border;
       expect(border.top.color, equals(const Color(0xFFCCFF00)));
-      expect(find.text('EDIT'), findsOneWidget);
     });
 
     testWidgets('P3.T5: Font size dialog allows customizing title, value, and unit sizes',
