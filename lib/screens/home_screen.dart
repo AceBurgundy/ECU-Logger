@@ -431,24 +431,41 @@ class _HomeScreenState extends State<HomeScreen>
 
                 // Responsive 2-Column Reflow Flow Layout Dashboard
                 Expanded(
-                  child: DashboardFlowLayout(
-                    cards: _layoutService.displayCards,
-                    telemetryData: data,
-                    isConnected: isConnected,
-                    isEditMode: _isEditMode && !isFreezePreview,
-                    shakeAnimation: _shakeAnimation,
-                    onTriggerEditMode: () {
-                      if (!isFreezePreview) _enterEditMode();
-                    },
-                    onReorderCards: (int oldIndex, int newIndex) {
-                      final List<CardConfig> updated = List<CardConfig>.from(_layoutService.displayCards);
-                      final CardConfig moved = updated.removeAt(oldIndex);
-                      updated.insert(newIndex, moved);
-                      _layoutService.updateDraftCards(updated);
-                    },
-                    onUpdateCard: (CardConfig updatedCard) {
-                      _layoutService.updateCardConfig(updatedCard);
-                    },
+                  child: Stack(
+                    children: [
+                      Positioned.fill(
+                        child: DashboardFlowLayout(
+                          cards: _layoutService.displayCards,
+                          telemetryData: data,
+                          isConnected: isConnected,
+                          isEditMode: _isEditMode && !isFreezePreview,
+                          shakeAnimation: _shakeAnimation,
+                          onTriggerEditMode: () {
+                            if (!isFreezePreview) _enterEditMode();
+                          },
+                          onReorderCards: (int oldIndex, int newIndex) {
+                            final List<CardConfig> updated = List<CardConfig>.from(_layoutService.displayCards);
+                            final CardConfig moved = updated.removeAt(oldIndex);
+                            updated.insert(newIndex, moved);
+                            _layoutService.updateDraftCards(updated);
+                          },
+                          onUpdateCard: (CardConfig updatedCard) {
+                            _layoutService.updateCardConfig(updatedCard);
+                          },
+                        ),
+                      ),
+
+                      // Floating bottom buttons positioned strictly ABOVE the console tab's top (never covering it)
+                      if (!_isScreenLocked)
+                        Positioned(
+                          right: 16.0,
+                          bottom: 16.0,
+                          child: _buildBottomActions(
+                            isConnected: isConnected,
+                            isFreezePreview: isFreezePreview,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
 
@@ -477,150 +494,159 @@ class _HomeScreenState extends State<HomeScreen>
               ),
           ],
         ),
-        floatingActionButton: _isScreenLocked
-            ? null
-            : (isFreezePreview
-                // Freeze Preview Bottom Buttons: icon-only Cancel & Set (P3.T8)
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      FloatingActionButton(
-                        heroTag: 'freeze_cancel_fab',
-                        mini: true,
-                        backgroundColor: GitHubTheme.canvasSubtle,
-                        shape: const CircleBorder(
-                          side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
-                        ),
-                        tooltip: 'Cancel Preview',
-                        onPressed: () {
-                          _layoutService.cancelFreezePreview();
-                          ToastService.show(
-                            context,
-                            'Preview cancelled. Restored previous layout.',
-                            type: ToastType.info,
-                          );
-                        },
-                        child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
-                      ),
-                      const SizedBox(width: 12.0),
-                      FloatingActionButton(
-                        heroTag: 'freeze_set_fab',
-                        backgroundColor: GitHubTheme.successFg,
-                        shape: const CircleBorder(),
-                        tooltip: 'Set Layout',
-                        onPressed: () async {
-                          await _layoutService.applyFreezePreview();
-                          if (context.mounted) {
-                            ToastService.show(
-                              context,
-                              'Cockpit layout permanently applied.',
-                              type: ToastType.success,
-                            );
-                          }
-                        },
-                        child: const Icon(Icons.check_rounded, color: Colors.white, size: 24.0),
-                      ),
-                    ],
-                  )
-                : (_isEditMode
-                    // Edit Mode Bottom Buttons: icon-only Cancel & Save (P3.T6)
-                    ? Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          FloatingActionButton(
-                            heroTag: 'edit_cancel_fab',
-                            mini: true,
-                            backgroundColor: GitHubTheme.canvasSubtle,
-                            shape: const CircleBorder(
-                              side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
-                            ),
-                            tooltip: 'Cancel Edits',
-                            onPressed: _handleCancelEditPrompt,
-                            child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
-                          ),
-                          const SizedBox(width: 12.0),
-                          FloatingActionButton(
-                            heroTag: 'edit_save_fab',
-                            backgroundColor: const Color(0xFFCCFF00),
-                            shape: const CircleBorder(),
-                            tooltip: 'Save Layout',
-                            onPressed: _handleSaveEditMode,
-                            child: const Icon(Icons.check_rounded, color: Colors.black, size: 24.0),
-                          ),
-                        ],
-                      )
-                    // Normal View Mode: 3 Bottom Buttons
-                    : StreamBuilder<BleConnectionState>(
-                        stream: _ble.stateStream,
-                        initialData: _ble.currentState,
-                        builder: (BuildContext fabContext, AsyncSnapshot<BleConnectionState> snapshot) {
-                          final BleConnectionState state = snapshot.data ?? BleConnectionState.disconnected;
-                          final Color fabColor = _getBleFabColor(state);
-
-                          return Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // List / Channel Selection FAB
-                              FloatingActionButton(
-                                heroTag: 'metric_list_fab',
-                                mini: true,
-                                tooltip: 'Available Telemetry Channels',
-                                backgroundColor: GitHubTheme.canvasSubtle,
-                                shape: const CircleBorder(
-                                  side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
-                                ),
-                                onPressed: _showMetricSelectionSheet,
-                                child: const Icon(
-                                  Icons.playlist_add_check_rounded,
-                                  color: GitHubTheme.fgDefault,
-                                  size: 20.0,
-                                ),
-                              ),
-                              const SizedBox(width: 10.0),
-
-                              // Lock FAB
-                              FloatingActionButton(
-                                heroTag: 'lock_fab',
-                                mini: true,
-                                backgroundColor: GitHubTheme.canvasSubtle,
-                                shape: const CircleBorder(
-                                  side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
-                                ),
-                                onPressed: () {
-                                  setState(() => _isScreenLocked = true);
-                                  ToastService.show(
-                                    context,
-                                    'Pocket Lock activated. Touch protected.',
-                                    type: ToastType.info,
-                                  );
-                                },
-                                child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20.0),
-                              ),
-                              const SizedBox(width: 12.0),
-
-                              // Bluetooth FAB
-                              FloatingActionButton(
-                                heroTag: 'ble_fab',
-                                backgroundColor: fabColor,
-                                shape: const CircleBorder(),
-                                tooltip: 'Bluetooth Settings',
-                                onPressed: _showBluetoothDialog,
-                                child: Icon(
-                                  state == BleConnectionState.connected
-                                      ? Icons.bluetooth_connected
-                                      : (state == BleConnectionState.scanning
-                                          ? Icons.bluetooth_searching
-                                          : Icons.bluetooth),
-                                  color: state == BleConnectionState.disconnected
-                                      ? GitHubTheme.canvasDefault
-                                      : Colors.white,
-                                ),
-                              ),
-                            ],
-                          );
-                        },
-                      ))),
       ),
+    );
+  }
+
+  /// Builds the floating action buttons resting strictly above the console drawer.
+  Widget _buildBottomActions({
+    required bool isConnected,
+    required bool isFreezePreview,
+  }) {
+    if (isFreezePreview) {
+      // Freeze Preview Bottom Buttons: icon-only Cancel & Set (P3.T8)
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'freeze_cancel_fab',
+            mini: true,
+            backgroundColor: GitHubTheme.canvasSubtle,
+            shape: const CircleBorder(
+              side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
+            ),
+            tooltip: 'Cancel Preview',
+            onPressed: () {
+              _layoutService.cancelFreezePreview();
+              ToastService.show(
+                context,
+                'Preview cancelled. Restored previous layout.',
+                type: ToastType.info,
+              );
+            },
+            child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
+          ),
+          const SizedBox(width: 12.0),
+          FloatingActionButton(
+            heroTag: 'freeze_set_fab',
+            backgroundColor: GitHubTheme.successFg,
+            shape: const CircleBorder(),
+            tooltip: 'Set Layout',
+            onPressed: () async {
+              await _layoutService.applyFreezePreview();
+              if (mounted) {
+                ToastService.show(
+                  context,
+                  'Cockpit layout permanently applied.',
+                  type: ToastType.success,
+                );
+              }
+            },
+            child: const Icon(Icons.check_rounded, color: Colors.white, size: 24.0),
+          ),
+        ],
+      );
+    }
+
+    if (_isEditMode) {
+      // Edit Mode Bottom Buttons: icon-only Cancel & Save (P3.T6)
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton(
+            heroTag: 'edit_cancel_fab',
+            mini: true,
+            backgroundColor: GitHubTheme.canvasSubtle,
+            shape: const CircleBorder(
+              side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
+            ),
+            tooltip: 'Cancel Edits',
+            onPressed: _handleCancelEditPrompt,
+            child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
+          ),
+          const SizedBox(width: 12.0),
+          FloatingActionButton(
+            heroTag: 'edit_save_fab',
+            backgroundColor: const Color(0xFFCCFF00),
+            shape: const CircleBorder(),
+            tooltip: 'Save Layout',
+            onPressed: _handleSaveEditMode,
+            child: const Icon(Icons.check_rounded, color: Colors.black, size: 24.0),
+          ),
+        ],
+      );
+    }
+
+    // Normal View Mode: 3 Bottom Buttons
+    return StreamBuilder<BleConnectionState>(
+      stream: _ble.stateStream,
+      initialData: _ble.currentState,
+      builder: (BuildContext fabContext, AsyncSnapshot<BleConnectionState> snapshot) {
+        final BleConnectionState state = snapshot.data ?? BleConnectionState.disconnected;
+        final Color fabColor = _getBleFabColor(state);
+
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // List / Channel Selection FAB
+            FloatingActionButton(
+              heroTag: 'metric_list_fab',
+              mini: true,
+              tooltip: 'Available Telemetry Channels',
+              backgroundColor: GitHubTheme.canvasSubtle,
+              shape: const CircleBorder(
+                side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
+              ),
+              onPressed: _showMetricSelectionSheet,
+              child: const Icon(
+                Icons.playlist_add_check_rounded,
+                color: GitHubTheme.fgDefault,
+                size: 20.0,
+              ),
+            ),
+            const SizedBox(width: 10.0),
+
+            // Lock FAB
+            FloatingActionButton(
+              heroTag: 'lock_fab',
+              mini: true,
+              backgroundColor: GitHubTheme.canvasSubtle,
+              shape: const CircleBorder(
+                side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
+              ),
+              onPressed: () {
+                setState(() => _isScreenLocked = true);
+                ToastService.show(
+                  context,
+                  'Pocket Lock activated. Touch protected.',
+                  type: ToastType.info,
+                );
+              },
+              child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20.0),
+            ),
+            const SizedBox(width: 12.0),
+
+            // Bluetooth FAB
+            FloatingActionButton(
+              heroTag: 'ble_fab',
+              backgroundColor: fabColor,
+              shape: const CircleBorder(),
+              tooltip: 'Bluetooth Settings',
+              onPressed: _showBluetoothDialog,
+              child: Icon(
+                state == BleConnectionState.connected
+                    ? Icons.bluetooth_connected
+                    : (state == BleConnectionState.scanning
+                        ? Icons.bluetooth_searching
+                        : Icons.bluetooth),
+                color: state == BleConnectionState.disconnected
+                    ? GitHubTheme.canvasDefault
+                    : Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

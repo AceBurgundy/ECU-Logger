@@ -158,15 +158,22 @@ class _DashboardFlowLayoutState extends State<DashboardFlowLayout> {
       },
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final double totalWidth = constraints.maxWidth;
-          const double gap = 12.0;
-          final double halfWidth = (totalWidth - gap) / 2;
+          // 2-Column setup: in Edit Mode, gap expands significantly so cards shrink down
+          // within their 2-column slots, providing wide channels for redesigning.
+          final double gap = widget.isEditMode ? 24.0 : 12.0;
+          final double horizontalPadding = widget.isEditMode ? 20.0 : 16.0;
+          final double verticalPadding = widget.isEditMode ? 18.0 : 12.0;
+
+          // Compute exact available width inside the scroll view accounting for padding
+          final double availableWidth = constraints.maxWidth - (horizontalPadding * 2);
+          final double halfWidth = (availableWidth - gap) / 2.0;
+          final double fullWidth = availableWidth;
           const double standardHeight = 108.0;
-          const double tallHeight = 228.0;
+          final double tallHeight = (standardHeight * 2) + gap;
 
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+            padding: EdgeInsets.fromLTRB(horizontalPadding, verticalPadding, horizontalPadding, 90.0),
             child: Wrap(
               spacing: gap,
               runSpacing: gap,
@@ -176,7 +183,7 @@ class _DashboardFlowLayoutState extends State<DashboardFlowLayout> {
                 final TelemetryMetric? metric = TelemetryMetric.findById(card.metricId);
                 if (metric == null) return const SizedBox.shrink();
 
-                final double cardW = card.colSpan == 2 ? totalWidth : halfWidth;
+                final double cardW = card.colSpan == 2 ? fullWidth : halfWidth;
                 final double cardH = card.rowSpan == 2 ? tallHeight : standardHeight;
                 final bool isActive = widget.isEditMode && (_activeMetricId == card.metricId);
 
@@ -225,7 +232,7 @@ class _DashboardFlowLayoutState extends State<DashboardFlowLayout> {
                     final double translationY = (index % 3 == 0 ? 1.0 : -1.0) * 1.2 * widget.shakeAnimation.value;
 
                     return Transform.scale(
-                      scale: isActive ? 0.96 : 0.92,
+                      scale: isActive ? 0.95 : 0.88,
                       child: Transform.translate(
                         offset: Offset(0.0, translationY),
                         child: Transform.rotate(
