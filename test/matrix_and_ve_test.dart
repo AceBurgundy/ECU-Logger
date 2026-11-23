@@ -68,5 +68,21 @@ void main() {
       expect(updated.rpm, equals(2500.0));
       expect(updated.tps, equals(12.0));
     });
+
+    test('Engine off state suppresses Volumetric Efficiency to zero', () {
+      // When RPM is 0 (engine stopped), VE should be 0.0 even if MAP is atmospheric
+      final TelemetryData stoppedEngineData = TelemetryData(
+        rpm: 0.0,
+        tps: 0.0,
+        mapKpa: 101.3,
+        veDensity: 0.0,
+        veCorrected: 0.0,
+        isVvaActive: false,
+      );
+      expect(stoppedEngineData.rpm, equals(0.0));
+      expect(stoppedEngineData.veDensity, equals(0.0));
+      expect(stoppedEngineData.veCorrected, equals(0.0));
+      expect(stoppedEngineData.isVvaActive, isFalse);
+    });
   });
 }

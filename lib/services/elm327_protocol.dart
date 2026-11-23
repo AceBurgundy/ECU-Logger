@@ -280,9 +280,9 @@ class Elm327Protocol {
       int dataStartIndex = 1;
       if (parts.length >= 3) {
         final int? dlc = int.tryParse(parts[1], radix: 16);
-        if (dlc != null &&
-            (dlc == parts.length - 2 ||
-                (parts[1].length == 2 && parts[1].startsWith('0') && dlc <= 8))) {
+        final bool isExactDlcMatch = dlc != null && dlc > 0 && dlc == (parts.length - 2);
+        final bool isExplicitDlcHeader = (parts[1] == '08' || parts[1] == '04') && parts.length != 9;
+        if (isExactDlcMatch || isExplicitDlcHeader) {
           dataStartIndex = 2;
         }
       }
@@ -300,20 +300,15 @@ class Elm327Protocol {
       String payloadHex = clean.substring(3);
 
       // Check for DLC prefix (e.g. 08 for 8 bytes, 04 for 4 bytes)
-      if (payloadHex.length >= 18 && payloadHex.startsWith('08')) {
-        payloadHex = payloadHex.substring(2);
-      } else if (payloadHex.length >= 10 && payloadHex.startsWith('04')) {
-        payloadHex = payloadHex.substring(2);
-      } else if (payloadHex.length >= 4) {
-        final int? dlc2 = int.tryParse(payloadHex.substring(0, 2), radix: 16);
-        if (dlc2 != null && dlc2 <= 8 && (payloadHex.length - 2) == dlc2 * 2) {
+      if (payloadHex.length >= 18 && (payloadHex.startsWith('08') || payloadHex.startsWith('04'))) {
+        final int? dlc = int.tryParse(payloadHex.substring(0, 2), radix: 16);
+        if (dlc != null && dlc * 2 == payloadHex.length - 2) {
           payloadHex = payloadHex.substring(2);
-        } else {
-          final int? dlc1 = int.tryParse(payloadHex.substring(0, 1), radix: 16);
-          if (dlc1 != null && dlc1 <= 8 && (payloadHex.length - 1) == dlc1 * 2) {
-            payloadHex = payloadHex.substring(1);
-          }
+        } else if (payloadHex.startsWith('08')) {
+          payloadHex = payloadHex.substring(2);
         }
+      } else if (payloadHex.length == 10 && payloadHex.startsWith('04')) {
+        payloadHex = payloadHex.substring(2);
       }
 
       for (int i = 0; i < payloadHex.length - 1; i += 2) {

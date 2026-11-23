@@ -111,5 +111,27 @@ void main() {
       const String compactWithHeader = '7E804410C1F40>';
       expect(Elm327Protocol.parseMode01Rpm(compactWithHeader), equals(2000.0));
     });
+
+    test('Parses engine-off CAN frames and PID responses accurately without byte shifts', () {
+      // Real recorded Yamaha XSR155 broadcast with Key ON, Engine OFF:
+      // 770 00 00 00 0F 00 20 F0 0C (byte0=00, byte1=00 -> 0 RPM; byte2=00 -> 0.0% TPS)
+      const String engineOff770 = '770 00 00 00 0F 00 20 F0 0C';
+      final Map<String, dynamic>? parsedOff770 = Elm327Protocol.parseRawCanFrame(engineOff770);
+      expect(parsedOff770, isNotNull);
+      expect(parsedOff770!['rpm'], equals(0.0));
+      expect(parsedOff770['tps'], equals(0.0));
+
+      // 20A frame with engine off
+      const String engineOff20A = '20A 00 00 00 00 00 00 00 00';
+      final Map<String, dynamic>? parsedOff20A = Elm327Protocol.parseRawCanFrame(engineOff20A);
+      expect(parsedOff20A, isNotNull);
+      expect(parsedOff20A!['rpm'], equals(0.0));
+      expect(parsedOff20A['tps'], equals(0.0));
+
+      // Diagnostic Mode 01 responses with engine off
+      expect(Elm327Protocol.parseMode01Rpm('7E8 04 41 0C 00 00'), equals(0.0));
+      expect(Elm327Protocol.parseMode01Tps('7E8 03 41 11 00'), equals(0.0));
+      expect(Elm327Protocol.parseMode01Ect('7E8 03 41 05 48'), equals(32.0)); // 0x48 = 72 - 40 = 32 C
+    });
   });
 }

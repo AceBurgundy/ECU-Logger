@@ -48,10 +48,15 @@ class _LogDrawerState extends State<LogDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    final double bottomInset = MediaQuery.of(context).viewPadding.bottom;
+    final double collapsedHeight = 48.0 + bottomInset;
+    final double expandedHeight = 260.0 + bottomInset;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeInOut,
-      height: _isExpanded ? 260.0 : 48.0,
+      height: _isExpanded ? expandedHeight : collapsedHeight,
+      padding: EdgeInsets.only(bottom: bottomInset),
       decoration: const BoxDecoration(
         color: GitHubTheme.canvasInset,
         border: Border(

@@ -521,17 +521,23 @@ class TelemetryEngine extends ChangeNotifier {
     }
 
     // VE% Speed-Density Calculation:
-    // VE_density = (MAP / Baro) * (293.15 / (273.15 + IAT)) * 100%
+    // Only calculated when engine is running (RPM > 0). If engine is off, VE is 0.0%.
     double? veDensity;
     double? veCorrected;
+    final bool isEngineRunning = rpm != null && rpm > 0.0;
     if (mapKpa != null) {
-      final double effectiveBaro = (baroKpa != null && baroKpa > 0.0) ? baroKpa : 101.3;
-      final double effectiveIat = iatC ?? 25.0;
-      veDensity = (mapKpa / effectiveBaro) * (293.15 / (273.15 + effectiveIat)) * 100.0;
+      if (!isEngineRunning) {
+        veDensity = 0.0;
+        veCorrected = 0.0;
+      } else {
+        final double effectiveBaro = (baroKpa != null && baroKpa > 0.0) ? baroKpa : 101.3;
+        final double effectiveIat = iatC ?? 25.0;
+        veDensity = (mapKpa / effectiveBaro) * (293.15 / (273.15 + effectiveIat)) * 100.0;
 
-      final double effectiveStft = stft ?? 0.0;
-      final double effectiveLtft = ltft ?? 0.0;
-      veCorrected = veDensity * (1.0 + ((effectiveStft + effectiveLtft) / 100.0));
+        final double effectiveStft = stft ?? 0.0;
+        final double effectiveLtft = ltft ?? 0.0;
+        veCorrected = veDensity * (1.0 + ((effectiveStft + effectiveLtft) / 100.0));
+      }
     }
 
     _currentData = _currentData.copyWith(
