@@ -19,13 +19,18 @@ export async function fetchNavigationItemData(navigationPath) {
     /** @type {HTMLScriptElement} */
     const scriptElement = document.createElement("script");
     
-    // Resolve relative to the application base URI so GitHub Pages sub-paths work perfectly
+    // Compute the base directory of the current page (e.g. "https://aceburgundy.github.io/ECU-Logger/")
+    const pathSegments = window.location.pathname.split("/").filter(Boolean);
+    // If the last segment has an extension (.html), pop it
+    if (pathSegments.length > 0 && pathSegments[pathSegments.length - 1].includes(".")) {
+      pathSegments.pop();
+    }
+    const repoBase = pathSegments.length > 0 ? `/${pathSegments.join("/")}/` : "/";
     const cleanPath = navigationPath.startsWith("./")
       ? navigationPath.slice(2)
       : (navigationPath.startsWith("/") ? navigationPath.slice(1) : navigationPath);
     
-    const baseUrl = new URL("./", window.location.href);
-    const resolvedUrl = new URL(cleanPath, baseUrl).href;
+    const resolvedUrl = `${window.location.origin}${repoBase}${cleanPath}`;
     
     scriptElement.src = resolvedUrl;
     scriptElement.onload = () => {
