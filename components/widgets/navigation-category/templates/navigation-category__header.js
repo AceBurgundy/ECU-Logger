@@ -4,6 +4,10 @@ css(import.meta, ["../styles/navigation-category__header.css"]);
 
 /** @type {Record<string, string>} */
 const CATEGORY_ICONS = {
+  "Getting Started": "rocket_launch",
+  "Core Modules & UI": "dashboard_customize",
+  "Protocols & Engine": "memory",
+  "Technical Reference": "code",
   "Get Started": "rocket_launch",
   "Dialog Archetypes": "widgets",
   "Styling & Theming": "palette",

@@ -1,42 +1,19 @@
-/**
- * @typedef {Object} NavigationItemHeader
- * @property {string} title - Header display title.
- * @property {string} description - High-level summary of the module.
- * @property {Array<{icon_name: string, badge_label: string}>} badge_list - Status badges.
- * @property {{image_path: string, shrink: boolean}} banner_image - Banner image configuration.
- * @property {{image_path: string, shrink: boolean}} mockup_card - Mockup presentation card.
- */
-
-/**
- * @typedef {Object} NavigationItemDefinition
- * @property {string} item_title - Title shown in navigation tree.
- * @property {string} icon_name - Material icon name.
- * @property {NavigationItemHeader} header_container - Header content container.
- * @property {Array<Object>} tab_list - Tabs containing section blocks and narrative.
- * @property {boolean} hide_tabs - Whether tab bar is hidden.
- * @property {boolean} hide_toc - Whether table of contents sidebar is hidden.
- */
-
 window.DOCUMENTATION_ITEMS = window.DOCUMENTATION_ITEMS || {};
 
-/** @type {NavigationItemDefinition} */
+/** @type {Object} */
 const overviewAndTenetsDefinition = {
   item_title: "Overview & Tenets",
   icon_name: "info",
   header_container: {
     title: "ECU Logger Overview & Core Tenets",
-    description: "Engineered for high-frequency motorcycle telemetry acquisition, active CAN bus monitoring, and non-intrusive road logging.",
+    description: "Engineered for high-frequency motorcycle telemetry acquisition, active CAN bus monitoring, and distraction-free road logging.",
     badge_list: [
-      { icon_name: "motorcycle", badge_label: "Motorcycle Telemetry" },
-      { icon_name: "bolt", badge_label: "High Frequency" },
+      { icon_name: "two_wheeler", badge_label: "Motorcycle Telemetry" },
+      { icon_name: "bolt", badge_label: "50-100Hz Acquisition" },
       { icon_name: "shield", badge_label: "Pocket Touch Immune" }
     ],
     banner_image: {
-      image_path: "assets/icon.png",
-      shrink: true
-    },
-    mockup_card: {
-      image_path: "assets/input.png",
+      image_path: "assets/dashboard.png",
       shrink: true
     }
   },
@@ -48,17 +25,18 @@ const overviewAndTenetsDefinition = {
         {
           block_type: "paragraph",
           heading_title: "Mission & Philosophy",
-          content: "ECU Logger is a dedicated, decoupled mobile telemetry logger application designed to capture real-time broadcast CAN bus data from Yamaha motorcycles via the NEXAS NexLink BLE adapter. Its sole mission is seamless, zero-lag background logging to device storage without crashes or accidental pocket touch disruption."
+          paragraph_text: "ECU Logger is a dedicated mobile telemetry logger engineered to capture real-time broadcast CAN bus and OBD-II data from motorcycles via NEXAS NexLink BLE 5.0 and standard ELM327 adapters. It delivers zero-lag background logging, live Speed-Density Volumetric Efficiency calculation, and a customizable 4-column GitHub Primer cockpit."
         },
         {
           block_type: "table",
           heading_title: "Core Engineering Tenets",
-          columns: ["Tenet", "Implementation", "Operational Impact"],
-          rows: [
-            ["Zero Touch Lock", "Dynamic 4-digit challenge overlay", "Allows rider to place phone into pocket without stopping logging or triggering buttons."],
-            ["Dual-Stream File Engine", "Buffered asynchronous file sink", "Simultaneously writes raw CAN frames, structured CSV, and JSON remap matrix."],
-            ["Lifecycle Auto-Save", "WidgetsBindingObserver hooks", "Automatically flushes and saves logs when app is paused, backgrounded, or BLE disconnects."],
-            ["Option 3 Minimalist Dashboard", "GitHub Primer dark palette", "High-contrast digital readouts visible in direct sunlight and night riding."]
+          table_headers: ["Tenet", "Implementation", "Operational Impact"],
+          table_rows: [
+            ["Adaptive 4-Column Cockpit", "Default 2x2 cards resizable 1..4 cols x 1..4 rows", "Renders clean 2-up default readouts on install while scaling freely up to full-width 4x4 priority gauges."],
+            ["Zero-Lag Pixel Resizing", "Unclipped 28px border & corner hit zones", "Dragged corners and edges follow the rider's hand pixel-for-pixel and snap cleanly on release."],
+            ["Drag-Only Jiggle & Reflow", "AnimatedPositioned 2D grid packer + drag-gated shake", "Edit Mode stays calm at rest; cards only jiggle while actively dragged as neighboring cards slide away smoothly."],
+            ["Translucent Pocket Lock", "Dynamic 4-digit PIN challenge overlay", "Protects against accidental fabric touches in jacket pockets while keeping metrics 100% readable."],
+            ["Lifecycle Auto-Save", "WidgetsBindingObserver flush hooks", "Automatically flushes raw CAN logs, CSV rows, and 16x11 VE matrix on pause or disconnect."]
           ]
         }
       ]

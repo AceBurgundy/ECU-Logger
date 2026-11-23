@@ -1,6 +1,7 @@
 /**
  * Asynchronously fetches and parses documentation navigation item specifications.
- * Uses window.DOCUMENTATION_ITEMS cache when available.
+ * Uses window.DOCUMENTATION_ITEMS cache when available and resolves script URLs
+ * relative to this module's root directory (immune to SPA history path changes).
  * @param {string} navigationPath - Target navigation item path (e.g. "data/navigation-items/overview-and-tenets.js" or "data/dashboard.js").
  * @returns {Promise<Object>} Resolved navigation item specification.
  */
@@ -18,20 +19,14 @@ export async function fetchNavigationItemData(navigationPath) {
   return new Promise((resolve, reject) => {
     /** @type {HTMLScriptElement} */
     const scriptElement = document.createElement("script");
-    
-    // Compute the base directory of the current page (e.g. "https://aceburgundy.github.io/ECU-Logger/")
-    const pathSegments = window.location.pathname.split("/").filter(Boolean);
-    // If the last segment has an extension (.html), pop it
-    if (pathSegments.length > 0 && pathSegments[pathSegments.length - 1].includes(".")) {
-      pathSegments.pop();
-    }
-    const repoBase = pathSegments.length > 0 ? `/${pathSegments.join("/")}/` : "/";
+
     const cleanPath = navigationPath.startsWith("./")
       ? navigationPath.slice(2)
       : (navigationPath.startsWith("/") ? navigationPath.slice(1) : navigationPath);
-    
-    const resolvedUrl = `${window.location.origin}${repoBase}${cleanPath}`;
-    
+
+    // data-loader.js resides at <docs-root>/common/scripts/data-loader.js
+    const resolvedUrl = new URL(`../../${cleanPath}`, import.meta.url).href;
+
     scriptElement.src = resolvedUrl;
     scriptElement.onload = () => {
       if (window.DOCUMENTATION_ITEMS[navigationPath]) {

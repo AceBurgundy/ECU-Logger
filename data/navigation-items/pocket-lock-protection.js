@@ -1,40 +1,17 @@
-/**
- * @typedef {Object} NavigationItemHeader
- * @property {string} title - Header display title.
- * @property {string} description - High-level summary of the module.
- * @property {Array<{icon_name: string, badge_label: string}>} badge_list - Status badges.
- * @property {{image_path: string, shrink: boolean}} banner_image - Banner image configuration.
- * @property {{image_path: string, shrink: boolean}} mockup_card - Mockup presentation card.
- */
-
-/**
- * @typedef {Object} NavigationItemDefinition
- * @property {string} item_title - Title shown in navigation tree.
- * @property {string} icon_name - Material icon name.
- * @property {NavigationItemHeader} header_container - Header content container.
- * @property {Array<Object>} tab_list - Tabs containing section blocks and lock specifications.
- * @property {boolean} hide_tabs - Whether tab bar is hidden.
- * @property {boolean} hide_toc - Whether table of contents sidebar is hidden.
- */
-
 window.DOCUMENTATION_ITEMS = window.DOCUMENTATION_ITEMS || {};
 
-/** @type {NavigationItemDefinition} */
+/** @type {Object} */
 const pocketLockProtectionDefinition = {
   item_title: "Pocket Lock Protection",
   icon_name: "lock",
   header_container: {
     title: "Translucent Pocket Lock Screen Overlay",
-    description: "Full-page translucent protection with dynamic 4-digit PIN challenge and numeric keypad, keeping metrics 100% visible underneath.",
+    description: "Full-page translucent touch barrier with a randomized 4-digit PIN challenge and glove-friendly keypad, keeping live metrics 100% visible underneath.",
     badge_list: [
-      { icon_name: "lock_open", badge_label: "Dynamic 4-Digit Challenge" },
+      { icon_name: "pin", badge_label: "Dynamic 4-Digit Challenge" },
       { icon_name: "visibility", badge_label: "100% Background Visibility" }
     ],
     banner_image: {
-      image_path: "assets/icon.png",
-      shrink: true
-    },
-    mockup_card: {
       image_path: "assets/lock_overlay.png",
       shrink: true
     }
@@ -46,18 +23,18 @@ const pocketLockProtectionDefinition = {
       section_blocks: [
         {
           block_type: "paragraph",
-          heading_title: "The Accidental Pocket Touch Problem",
-          content: "When riding a motorcycle with the logger running in a pocket or jacket, body fabric touches frequently stop logging, toggle settings, or disconnect Bluetooth. The Translucent Pocket Lock solves this completely by placing a full-screen touch interceptor over the viewport while maintaining full visibility of live engine metrics."
+          heading_title: "Preventing Accidental Pocket Touches",
+          paragraph_text: "When riding with your phone stowed inside a jacket pocket or tank bag, stray fabric touches can disconnect Bluetooth, switch layouts, or clear logs. Activating the Pocket Lock places a full-screen translucent modal over the cockpit that blocks all touch input beneath while leaving live telemetry readouts and the rolling log drawer completely legible."
         },
         {
           block_type: "table",
           heading_title: "Keypad & Verification Security",
-          columns: ["Property", "Specification", "Behavior"],
-          rows: [
-            ["PIN Generation", "Random 4 Digits", "Regenerated on every activation; displayed prominently in quotes"],
-            ["Keypad Layout", "3x4 Telephone Pad", "Large glove-friendly circular buttons with tactile sound/vibration"],
-            ["Wrong Input", "Shake & Red Flash", "Keypad shakes horizontally with red glow and clears entry on mismatch"],
-            ["Pass-through", "Active Telemetry", "Underlying stream metrics update continuously at 50-100Hz"]
+          table_headers: ["Property", "Specification", "Behavior"],
+          table_rows: [
+            ["PIN Generation", "Random 4 Digits", "Regenerated on every lock activation and displayed clearly in quotes"],
+            ["Keypad Layout", "3x4 Circular Pad", "Large glove-friendly numeric buttons plus CLR and Backspace controls"],
+            ["Mismatch Feedback", "Horizontal Shake & Flash", "Keypad shakes with danger-red border glow and clears input automatically"],
+            ["Telemetry Continuity", "Non-Blocking Stack", "BLE acquisition, VE math, and disk file streaming run uninterrupted underneath"]
           ]
         }
       ]
