@@ -188,19 +188,28 @@ export class Tabs extends Component {
       /** @type {HTMLElement|null} */
       const trackElement = containerElement?.querySelector(".tabs__track") || null;
 
+      /** @type {Array<function(): void>} */
+      const cleanups = [];
+
       if (containerElement) {
-        attachDragToScroll(containerElement);
+        cleanups.push(attachDragToScroll(containerElement));
       }
 
       if (trackElement) {
-        attachTabsSwipeGesture({
+        cleanups.push(attachTabsSwipeGesture({
           trackElement,
           getActiveIndex: () => this.activeTabSignal.value,
           onActivateIndex: (newIndex, direction) => {
             activateTabWithAnimation(newIndex, direction);
           }
-        });
+        }));
       }
+
+      this.beforeUnmount = () => {
+        cleanups.forEach((cleanup) => {
+          if (typeof cleanup === "function") cleanup();
+        });
+      };
     };
   }
 }

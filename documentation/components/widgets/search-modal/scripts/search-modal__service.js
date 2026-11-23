@@ -92,6 +92,65 @@ export function toggleSearchModal() {
 }
 
 /**
+ * Extracts searchable plain text from a documentation item's tabs and blocks.
+ * @param {object|undefined} itemSpecification - Loaded navigation item specification.
+ * @returns {string} Lowercased combined search text.
+ */
+function buildSearchableText(itemSpecification) {
+    if (!itemSpecification || typeof itemSpecification !== 'object') {
+        return '';
+    }
+    /** @type {Array<string>} */
+    const chunks = [];
+    if (itemSpecification.item_title) chunks.push(String(itemSpecification.item_title));
+    if (itemSpecification.header_container?.title) chunks.push(String(itemSpecification.header_container.title));
+    if (itemSpecification.header_container?.description) chunks.push(String(itemSpecification.header_container.description));
+
+    const tabs = Array.isArray(itemSpecification.tab_list) ? itemSpecification.tab_list : [];
+    tabs.forEach((tab) => {
+        if (tab.tab_title) chunks.push(String(tab.tab_title));
+        const blocks = Array.isArray(tab.section_blocks) ? tab.section_blocks : [];
+        blocks.forEach((block) => {
+            if (block.heading_title) chunks.push(String(block.heading_title));
+            if (block.paragraph_text) chunks.push(String(block.paragraph_text));
+            if (block.description) chunks.push(String(block.description));
+            if (Array.isArray(block.table_headers)) chunks.push(block.table_headers.join(' '));
+            if (Array.isArray(block.table_rows)) {
+                block.table_rows.forEach((row) => {
+                    if (Array.isArray(row)) chunks.push(row.join(' '));
+                });
+            }
+            if (Array.isArray(block.diamond_items)) chunks.push(block.diamond_items.join(' '));
+            if (Array.isArray(block.cards)) {
+                block.cards.forEach((card) => {
+                    if (card.title) chunks.push(String(card.title));
+                    if (card.description) chunks.push(String(card.description));
+                    if (card.label) chunks.push(String(card.label));
+                });
+            }
+        });
+    });
+
+    return chunks.join(' ').toLowerCase();
+}
+
+/**
+ * Checks whether searchable text matches query (supporting simple resize/resizing stem).
+ * @param {string} haystack - Lowercased text corpus.
+ * @param {string} normalizedQuery - Lowercased trimmed query.
+ * @returns {boolean}
+ */
+function matchesSearchQuery(haystack, normalizedQuery) {
+    if (!normalizedQuery) return true;
+    if (haystack.includes(normalizedQuery)) return true;
+    if (normalizedQuery.length >= 4 && normalizedQuery.endsWith('e')) {
+        const stem = normalizedQuery.slice(0, -1);
+        if (haystack.includes(`${stem}ing`)) return true;
+    }
+    return false;
+}
+
+/**
  * Queries all available documentation items against a keyword.
  * @param {string} queryText - Search keyword.
  * @returns {Array<SearchIndexEntry>} Matching documentation entries.
@@ -125,12 +184,10 @@ export function searchDocumentation(queryText) {
             const description = itemSpecification?.header_container?.description || '';
             /** @type {string} */
             const iconName = itemSpecification?.icon_name || 'article';
+            /** @type {string} */
+            const corpus = buildSearchableText(itemSpecification) || `${title} ${description}`.toLowerCase();
 
-            if (
-                !normalizedQuery ||
-                title.toLowerCase().includes(normalizedQuery) ||
-                description.toLowerCase().includes(normalizedQuery)
-            ) {
+            if (matchesSearchQuery(corpus, normalizedQuery)) {
                 matchedEntries.push({
                     title,
                     description,
@@ -151,12 +208,10 @@ export function searchDocumentation(queryText) {
         const dashboardDescription = dashboardSpecification.header_container?.description || "";
         /** @type {string} */
         const dashboardIconName = dashboardSpecification.icon_name || "dashboard";
+        /** @type {string} */
+        const dashboardCorpus = buildSearchableText(dashboardSpecification) || `${dashboardTitle} ${dashboardDescription}`.toLowerCase();
 
-        if (
-            !normalizedQuery ||
-            dashboardTitle.toLowerCase().includes(normalizedQuery) ||
-            dashboardDescription.toLowerCase().includes(normalizedQuery)
-        ) {
+        if (matchesSearchQuery(dashboardCorpus, normalizedQuery)) {
             matchedEntries.push({
                 title: dashboardTitle,
                 description: dashboardDescription,

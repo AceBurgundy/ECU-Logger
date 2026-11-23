@@ -67,7 +67,7 @@ const dashboardDefinition = {
               description: "Complete breakdown of the BLE UART transport, ELM327 CAN frame parsing, and 2D cockpit grid packer.",
               label: "Architecture",
               link: "data/navigation-items/architecture-and-pipeline.js",
-              image_path: "assets/scale.png",
+              image_path: "assets/saved_layouts.png",
               shrink: true
             },
             {

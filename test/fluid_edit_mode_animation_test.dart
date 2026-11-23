@@ -522,5 +522,166 @@ void main() {
       await tester.pump(const Duration(milliseconds: 350));
       await tester.pump(const Duration(seconds: 4));
     });
+
+    testWidgets('Active card scales smoothly from 0.96 to 1.0 on Save & Cancel without dipping to 0.90',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412.0, 915.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(_cardEffectiveScale(tester, 'ENGINE SPEED'), closeTo(0.96, 0.01));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(find.byIcon(Icons.check_rounded));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 40));
+
+      final double earlyExitScale = _cardEffectiveScale(tester, 'ENGINE SPEED');
+      expect(
+        earlyExitScale,
+        greaterThanOrEqualTo(0.959),
+        reason: 'Active card must scale smoothly from 0.96 upward to 1.0 without dipping to 0.90',
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump(const Duration(seconds: 4));
+      expect(_cardEffectiveScale(tester, 'ENGINE SPEED'), closeTo(1.0, 0.005));
+    });
+
+    testWidgets('Outer perimeter of topLeft & left handles on row 0 col 0 card captures resize drags',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412.0, 915.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final Rect initialRect = tester.getRect(_cardFinder('ENGINE SPEED'));
+      // Touch 8px OUTSIDE the left border of the card (inside the 16px outer margin)
+      final Offset outerLeftHandle = Offset(initialRect.left - 8.0, initialRect.center.dy);
+      final TestGesture outerDrag = await tester.startGesture(outerLeftHandle);
+      await tester.pump();
+      await outerDrag.moveBy(const Offset(90.0, 0.0));
+      await tester.pump();
+
+      final Rect midOuterRect = tester.getRect(_cardFinder('ENGINE SPEED'));
+      expect(
+        midOuterRect.left - initialRect.left,
+        closeTo(90.0, 4.0),
+        reason: 'Outer left handle margin must capture drag and follow finger pixel-by-pixel',
+      );
+      expect(midOuterRect.right, closeTo(initialRect.right, 2.0));
+
+      await outerDrag.up();
+      await tester.pumpAndSettle();
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Discard'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    testWidgets('Mixed-size grid: dragging 2x2 card onto right half of 4x2 top card moves it to slot 0',
+        (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(412.0, 915.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final DashboardLayoutService layoutService = DashboardLayoutService.instance;
+      await layoutService.initialize();
+
+      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      // Resize ENGINE SPEED to 4 cols x 2 rows
+      final Rect rpmRect = tester.getRect(_cardFinder('ENGINE SPEED'));
+      final TestGesture expandRpm = await tester.startGesture(rpmRect.centerRight);
+      await tester.pump();
+      await expandRpm.moveBy(const Offset(210.0, 0.0));
+      await tester.pump();
+      await expandRpm.up();
+      await tester.pumpAndSettle();
+
+      expect(layoutService.displayCards.firstWhere((c) => c.metricId == 'rpm').colSpan, equals(4));
+
+      final Rect wideRpmRect = tester.getRect(_cardFinder('ENGINE SPEED'));
+      final Offset mapCenter = tester.getCenter(_cardFinder('MANIFOLD PRESSURE'));
+      // Hover over the RIGHT half of the 4x2 ENGINE SPEED card
+      final Offset rightHalfOfWideTop = Offset(wideRpmRect.left + wideRpmRect.width * 0.78, wideRpmRect.center.dy);
+
+      final TestGesture drag = await tester.startGesture(mapCenter);
+      await tester.pump(const Duration(milliseconds: 300));
+      await drag.moveTo(rightHalfOfWideTop);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 120));
+
+      // ENGINE SPEED must slide down away from row 0!
+      expect(
+        tester.getTopLeft(_cardFinder('ENGINE SPEED')).dy,
+        greaterThan(wideRpmRect.top + 10.0),
+        reason: '4x2 top card must slide down when hovering over its right half',
+      );
+
+      await drag.up();
+      await tester.pumpAndSettle();
+      expect(layoutService.displayCards[0].metricId, equals('map'));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Discard'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.pump(const Duration(seconds: 4));
+    });
+
+    testWidgets('1x1 MetricCard with max font sizes renders with zero RenderFlex overflow',
+        (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 84.0,
+                height: 52.0,
+                child: MetricCard(
+                  label: 'MANIFOLD PRESSURE',
+                  value: '101.3',
+                  unit: 'kPa',
+                  isEditMode: true,
+                  isActive: true,
+                  titleFontSize: 18.0,
+                  valueFontSize: 48.0,
+                  unitFontSize: 16.0,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
   });
 }

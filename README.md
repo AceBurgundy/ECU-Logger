@@ -5,7 +5,7 @@
 Built specifically for motorcycle telemetry acquisition and ECU tuning on Android, `ECU Logger` delivers crash-resilient 50–100Hz background logging to your road runs! Whether you are tuning Yamaha low-end fueling, diagnosing VVA camshaft transitions, or recording high-speed CAN streams from a NEXAS NexLink BLE 5.0 adapter, `ECU Logger` provides a high-contrast GitHub Primer cockpit with fluid 4-column card customization and continuous disk logging right out of the box. ⚡
 
 **Live Documentation**: [https://aceburgundy.github.io/ECU-Logger/](https://aceburgundy.github.io/ECU-Logger/)  
-**Direct APK Download (`v1.0.0`)**: [Download ecu-logger-v1.0.0.apk](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.0/ecu-logger-v1.0.0.apk)
+**Direct APK Download (`v1.0.1`)**: [Download ecu-logger-v1.0.1.apk](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk)
 
 ---
 
@@ -15,9 +15,9 @@ Built specifically for motorcycle telemetry acquisition and ECU tuning on Androi
 |:---:|:---:|:---:|
 | ![Normal Dashboard](screenshots/dashboard.png) | ![Edit Mode](screenshots/edit_mode.png) | ![Selected Card](screenshots/edit_mode_selected.png) |
 
-| Pocket Touch Lock Overlay | Rolling Console Drawer | Custom Font Size Dialog |
-|:---:|:---:|:---:|
-| ![Lock Overlay](screenshots/lock_overlay.png) | ![Console Drawer](screenshots/console_log.png) | ![Font Dialog](screenshots/font_dialog.png) |
+| Pocket Touch Lock Overlay | Rolling Console Drawer | Custom Font Size Dialog | Saved Cockpit Layouts |
+|:---:|:---:|:---:|:---:|
+| ![Lock Overlay](screenshots/lock_overlay.png) | ![Console Drawer](screenshots/console_log.png) | ![Font Dialog](screenshots/font_dialog.png) | ![Saved Layouts](screenshots/saved_layouts.png) |
 
 ---
 
@@ -61,7 +61,7 @@ flutter pub get
 
 ### 1️⃣ Installation & Launch ⚙️
 
-Install the latest release APK directly from [GitHub Releases](https://github.com/AceBurgundy/ECU-Logger/releases/latest) ([Direct APK Download](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.0/ecu-logger-v1.0.0.apk)) or build from source:
+Install the latest release APK directly from [GitHub Releases](https://github.com/AceBurgundy/ECU-Logger/releases/latest) ([Direct APK Download](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk)) or build from source:
 
 ```bash
 flutter run --release

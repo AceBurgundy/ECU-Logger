@@ -62,7 +62,7 @@ const footerDefinition = {
       links: [
         { label: "Project Overview", url: "https://github.com/AceBurgundy/ECU-Logger#readme" },
         { label: "Requirements & Setup", url: "https://github.com/AceBurgundy/ECU-Logger#requirements--installation" },
-        { label: "Latest APK Release", url: "https://github.com/AceBurgundy/ECU-Logger/releases/latest" }
+        { label: "Latest APK Release (v1.0.1)", url: "https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk" }
       ]
     },
     {

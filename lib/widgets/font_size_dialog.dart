@@ -154,13 +154,17 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        widget.cardTitle.toUpperCase(),
-                        style: TextStyle(
-                          fontFamily: GitHubTheme.fontGoogleSans,
-                          fontSize: _titleSize,
-                          fontWeight: FontWeight.w600,
-                          color: GitHubTheme.fgMuted,
+                      Flexible(
+                        child: Text(
+                          widget.cardTitle.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: GitHubTheme.fontGoogleSans,
+                            fontSize: _titleSize,
+                            fontWeight: FontWeight.w600,
+                            color: GitHubTheme.fgMuted,
+                          ),
                         ),
                       ),
                       const SizedBox(width: 4.0),

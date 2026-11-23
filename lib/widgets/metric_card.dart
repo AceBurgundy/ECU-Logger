@@ -45,6 +45,10 @@ class MetricCard extends StatelessWidget {
   /// Set to false when an outer overlay layer handles unclipped border/corner hit testing.
   final bool interactiveHandles;
 
+  /// Whether edge and corner resize handles are drawn visually when active in Edit Mode.
+  /// Set to false on floating drag-to-reorder feedback cards.
+  final bool showHandles;
+
   /// Whether this card is currently being actively dragged to resize (disables container animation lag).
   final bool isResizing;
 
@@ -86,6 +90,7 @@ class MetricCard extends StatelessWidget {
     this.isEditMode = false,
     this.isActive = false,
     this.interactiveHandles = true,
+    this.showHandles = true,
     this.isResizing = false,
     this.titleFontSize,
     this.valueFontSize,
@@ -143,98 +148,152 @@ class MetricCard extends StatelessWidget {
                 : null))
         : null;
 
-    final Widget cardBody = AnimatedContainer(
-      duration: isResizing ? Duration.zero : const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
-      padding: EdgeInsets.symmetric(
-        horizontal: isEditMode ? 12.0 : 8.0,
-        vertical: isEditMode ? 10.0 : 6.0,
-      ),
-      decoration: BoxDecoration(
-        color: cardBackground,
-        borderRadius: BorderRadius.circular(12.0),
-        border: border,
-        boxShadow: shadows,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // Header Row: Title and Value-Type Pill tightly beside each other
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
+    final Widget cardBody = LayoutBuilder(
+      builder: (BuildContext boxContext, BoxConstraints boxConstraints) {
+        final bool isCompactHeight = boxConstraints.hasBoundedHeight && boxConstraints.maxHeight < 68.0;
+        final double padH = isCompactHeight ? (isEditMode ? 8.0 : 6.0) : (isEditMode ? 12.0 : 8.0);
+        final double padV = isCompactHeight ? 4.0 : (isEditMode ? 10.0 : 6.0);
+
+        final Widget headerRow = Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Flexible(
+                    child: Text(
+                      label.toUpperCase(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: GitHubTheme.fontGoogleSans,
+                        fontSize: titleFontSize ?? 10.5,
+                        fontWeight: FontWeight.w600,
+                        color: GitHubTheme.fgMuted,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                  if (unit.isNotEmpty) ...[
+                    const SizedBox(width: 5.0),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isCompactHeight ? 4.0 : 5.0,
+                        vertical: isCompactHeight ? 0.5 : 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: GitHubTheme.canvasInset,
+                        borderRadius: BorderRadius.circular(5.0),
+                        border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
+                      ),
                       child: Text(
-                        label.toUpperCase(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        unit,
                         style: TextStyle(
-                          fontFamily: GitHubTheme.fontGoogleSans,
-                          fontSize: titleFontSize ?? 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: GitHubTheme.fgMuted,
-                          letterSpacing: 0.3,
+                          fontFamily: GitHubTheme.fontGoogleSansCode,
+                          fontSize: unitFontSize ?? 9.5,
+                          fontWeight: FontWeight.w500,
+                          color: GitHubTheme.fgSubtle,
                         ),
                       ),
                     ),
-                    if (unit.isNotEmpty) ...[
-                      const SizedBox(width: 5.0),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: GitHubTheme.canvasInset,
-                          borderRadius: BorderRadius.circular(5.0),
-                          border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
-                        ),
-                        child: Text(
-                          unit,
-                          style: TextStyle(
-                            fontFamily: GitHubTheme.fontGoogleSansCode,
-                            fontSize: unitFontSize ?? 9.5,
-                            fontWeight: FontWeight.w500,
-                            color: GitHubTheme.fgSubtle,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
+                ],
+              ),
+            ),
+          ],
+        );
+
+        final Widget compactHeaderRow = Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              label.toUpperCase(),
+              maxLines: 1,
+              style: TextStyle(
+                fontFamily: GitHubTheme.fontGoogleSans,
+                fontSize: titleFontSize ?? 10.5,
+                fontWeight: FontWeight.w600,
+                color: GitHubTheme.fgMuted,
+                letterSpacing: 0.3,
+              ),
+            ),
+            if (unit.isNotEmpty) ...[
+              const SizedBox(width: 4.0),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 0.5),
+                decoration: BoxDecoration(
+                  color: GitHubTheme.canvasInset,
+                  borderRadius: BorderRadius.circular(5.0),
+                  border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
+                ),
+                child: Text(
+                  unit,
+                  style: TextStyle(
+                    fontFamily: GitHubTheme.fontGoogleSansCode,
+                    fontSize: unitFontSize ?? 9.5,
+                    fontWeight: FontWeight.w500,
+                    color: GitHubTheme.fgSubtle,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        );
+
+        return AnimatedContainer(
+          duration: isResizing ? Duration.zero : const Duration(milliseconds: 280),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(horizontal: padH, vertical: padV),
+          decoration: BoxDecoration(
+            color: cardBackground,
+            borderRadius: BorderRadius.circular(12.0),
+            border: border,
+            boxShadow: shadows,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              // Header Row: Title and Value-Type Pill tightly beside each other (overflow-safe at 1x1)
+              isCompactHeight
+                  ? FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: compactHeaderRow,
+                    )
+                  : headerRow,
+
+              // Small gap between title row and value readout (P3.T1 requirement)
+              SizedBox(height: isCompactHeight ? 1.0 : 3.0),
+
+              // Numeric readout value with FittedBox to prevent clipping
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      displayValue,
+                      style: TextStyle(
+                        fontFamily: GitHubTheme.fontGoogleSansCode,
+                        fontSize: valueFontSize ?? 28.0,
+                        fontWeight: FontWeight.w700,
+                        color: isHighlight ? effectiveAccent : GitHubTheme.fgDefault,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ],
           ),
-
-          // Small gap between title row and value readout (P3.T1 requirement)
-          const SizedBox(height: 3.0),
-
-          // Numeric readout value with FittedBox to prevent clipping
-          Expanded(
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  displayValue,
-                  style: TextStyle(
-                    fontFamily: GitHubTheme.fontGoogleSansCode,
-                    fontSize: valueFontSize ?? 28.0,
-                    fontWeight: FontWeight.w700,
-                    color: isHighlight ? effectiveAccent : GitHubTheme.fgDefault,
-                    letterSpacing: -0.5,
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
 
     return Stack(
@@ -248,7 +307,7 @@ class MetricCard extends StatelessWidget {
         ),
 
         // Visual + optional standalone interactive handles on all 4 edges & 4 corners when active
-        if (isEditMode && isActive) ...[
+        if (isEditMode && isActive && showHandles) ...[
           // Edge handles
           _buildEdgeHandle(Alignment.centerLeft),
           _buildEdgeHandle(Alignment.centerRight),

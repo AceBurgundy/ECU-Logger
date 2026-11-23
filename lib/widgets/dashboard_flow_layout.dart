@@ -192,6 +192,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
   final GlobalKey _gridCanvasKey = GlobalKey();
 
   String? _internalActiveMetricId;
+  String? _exitingActiveMetricId;
   String? _draggedMetricId;
   int? _hoverDropIndex;
 
@@ -244,7 +245,9 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     });
     _entryAnimationController.addStatusListener((AnimationStatus status) {
       if (status == AnimationStatus.dismissed && mounted) {
-        setState(() {});
+        setState(() {
+          _exitingActiveMetricId = null;
+        });
       }
     });
 
@@ -258,13 +261,12 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
   @override
   void didUpdateWidget(DashboardFlowLayout oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.activeMetricId != oldWidget.activeMetricId) {
-      _internalActiveMetricId = widget.activeMetricId;
-    }
     if (widget.isEditMode != oldWidget.isEditMode) {
       if (widget.isEditMode) {
+        _exitingActiveMetricId = null;
         _entryAnimationController.forward();
       } else {
+        _exitingActiveMetricId = oldWidget.activeMetricId ?? _internalActiveMetricId;
         _entryAnimationController.reverse();
         if (_draggedMetricId != null) {
           widget.onDraggingChanged?.call(false);
@@ -279,6 +281,8 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
         _resizeBaseRect = null;
         _liveResizeRect = null;
       }
+    } else if (widget.activeMetricId != oldWidget.activeMetricId) {
+      _internalActiveMetricId = widget.activeMetricId;
     }
   }
 
@@ -502,13 +506,19 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
       candidateSlots.add(candidateLayout.rects[draggedId]!);
     }
 
+    double slotMetric(Rect slot) {
+      final double dx = probe.dx - slot.center.dx;
+      final double dy = (probe.dy - slot.center.dy) * 2.2;
+      return math.sqrt((dx * dx) + (dy * dy));
+    }
+
     int bestIndex = _hoverDropIndex ?? oldIdx;
     double bestDist = (bestIndex >= 0 && bestIndex < candidateSlots.length)
-        ? (probe - candidateSlots[bestIndex].center).distance
+        ? slotMetric(candidateSlots[bestIndex])
         : double.infinity;
 
     for (int k = 0; k < candidateSlots.length; k++) {
-      final double d = (probe - candidateSlots[k].center).distance;
+      final double d = slotMetric(candidateSlots[k]);
       // 12px hysteresis prevents flicker when resting right on a midpoint boundary
       if (k != bestIndex && (d + 12.0) < bestDist) {
         bestDist = d;
@@ -587,7 +597,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
         builder: (BuildContext context, BoxConstraints constraints) {
           final double gap = widget.isEditMode ? 14.0 : 12.0;
           const double horizontalPadding = 16.0;
-          final double verticalPadding = widget.isEditMode ? 16.0 : 12.0;
+          const double verticalPadding = 14.0;
 
           // 4-column unit grid calculation
           final double availableWidth = math.max(100.0, constraints.maxWidth - (horizontalPadding * 2));
@@ -643,6 +653,9 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
             if (metric == null || gridRect == null) continue;
 
             final bool isActive = widget.isEditMode && (currentActiveMetricId == card.metricId);
+            final bool scaleAsActive = widget.isEditMode
+                ? (currentActiveMetricId == card.metricId)
+                : (_exitingActiveMetricId == card.metricId);
             final bool isResizingThis = (_resizingMetricId == card.metricId) && _liveResizeRect != null;
             final Rect effectiveRect = isResizingThis ? _liveResizeRect! : gridRect;
 
@@ -663,6 +676,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
               isEditMode: widget.isEditMode,
               isActive: isActive,
               interactiveHandles: false,
+              showHandles: _draggedMetricId == null,
               isResizing: isResizingThis,
               titleFontSize: card.titleFontSize,
               valueFontSize: card.valueFontSize,
@@ -685,7 +699,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                       _jiggleFadeController,
                     ]),
                     builder: (BuildContext cardContext, Widget? child) {
-                      final double currentScale = _currentScaleForCard(isActive);
+                      final double currentScale = _currentScaleForCard(scaleAsActive);
 
                       // Jiggle ONLY while actively holding & dragging a card
                       final double jiggleAmount = _jiggleFadeController.value;
@@ -767,28 +781,26 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                                 color: Colors.transparent,
                                 elevation: 12.0,
                                 borderRadius: BorderRadius.circular(12.0),
-                                child: Opacity(
-                                  opacity: 0.90,
-                                  child: SizedBox(
-                                    width: effectiveRect.width,
-                                    height: effectiveRect.height,
-                                    child: Transform.scale(
-                                      scale: liftScale,
-                                      child: Transform.rotate(
-                                        angle: angle,
-                                        child: MetricCard(
-                                          label: metric.shortLabel,
-                                          value: displayValue,
-                                          unit: metric.unit,
-                                          accentColor: metric.accentColor,
-                                          isHighlight: isHighlight,
-                                          isEditMode: true,
-                                          isActive: true,
-                                          interactiveHandles: false,
-                                          titleFontSize: card.titleFontSize,
-                                          valueFontSize: card.valueFontSize,
-                                          unitFontSize: card.unitFontSize,
-                                        ),
+                                child: SizedBox(
+                                  width: effectiveRect.width,
+                                  height: effectiveRect.height,
+                                  child: Transform.scale(
+                                    scale: liftScale,
+                                    child: Transform.rotate(
+                                      angle: angle,
+                                      child: MetricCard(
+                                        label: metric.shortLabel,
+                                        value: displayValue,
+                                        unit: metric.unit,
+                                        accentColor: metric.accentColor,
+                                        isHighlight: isHighlight,
+                                        isEditMode: true,
+                                        isActive: true,
+                                        interactiveHandles: false,
+                                        showHandles: false,
+                                        titleFontSize: card.titleFontSize,
+                                        valueFontSize: card.valueFontSize,
+                                        unitFontSize: card.unitFontSize,
                                       ),
                                     ),
                                   ),
@@ -903,8 +915,8 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
               key: ValueKey<String>('resize_overlay_${activeCard.metricId}'),
               duration: isResizingActive ? Duration.zero : const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
-              left: visualRect.left - _handleHitPad,
-              top: visualRect.top - _handleHitPad,
+              left: horizontalPadding + visualRect.left - _handleHitPad,
+              top: verticalPadding + visualRect.top - _handleHitPad,
               width: visualRect.width + zoneSize,
               height: visualRect.height + zoneSize,
               child: Stack(
@@ -976,7 +988,6 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
             physics: (_isTouchingResizeHandle || _resizingMetricId != null || _draggedMetricId != null)
                 ? const NeverScrollableScrollPhysics()
                 : const BouncingScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(horizontalPadding, verticalPadding, horizontalPadding, 90.0),
             child: DragTarget<String>(
               onWillAcceptWithDetails: (_) => true,
               onAcceptWithDetails: (DragTargetDetails<String> details) {
@@ -984,13 +995,26 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
               },
               builder: (BuildContext dropCtx, List<String?> candidateData, List<dynamic> rejectedData) {
                 return SizedBox(
-                  key: _gridCanvasKey,
-                  width: availableWidth,
-                  height: canvasHeight,
+                  width: constraints.maxWidth,
+                  height: verticalPadding + canvasHeight + 90.0,
                   child: Stack(
                     clipBehavior: Clip.none,
                     children: [
-                      ...cardChildren,
+                      Positioned(
+                        left: horizontalPadding,
+                        top: verticalPadding,
+                        width: availableWidth,
+                        height: canvasHeight,
+                        child: SizedBox(
+                          key: _gridCanvasKey,
+                          width: availableWidth,
+                          height: canvasHeight,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: cardChildren,
+                          ),
+                        ),
+                      ),
                       if (resizeOverlay != null) resizeOverlay,
                     ],
                   ),
