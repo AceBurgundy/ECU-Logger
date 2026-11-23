@@ -18,10 +18,16 @@ export async function fetchNavigationItemData(navigationPath) {
   return new Promise((resolve, reject) => {
     /** @type {HTMLScriptElement} */
     const scriptElement = document.createElement("script");
-    const scriptSource = navigationPath.startsWith("./")
-      ? navigationPath
-      : `./${navigationPath}`;
-    scriptElement.src = scriptSource;
+    
+    // Resolve relative to the application base URI so GitHub Pages sub-paths work perfectly
+    const cleanPath = navigationPath.startsWith("./")
+      ? navigationPath.slice(2)
+      : (navigationPath.startsWith("/") ? navigationPath.slice(1) : navigationPath);
+    
+    const baseUrl = new URL("./", window.location.href);
+    const resolvedUrl = new URL(cleanPath, baseUrl).href;
+    
+    scriptElement.src = resolvedUrl;
     scriptElement.onload = () => {
       if (window.DOCUMENTATION_ITEMS[navigationPath]) {
         resolve(window.DOCUMENTATION_ITEMS[navigationPath]);
@@ -36,7 +42,7 @@ export async function fetchNavigationItemData(navigationPath) {
     scriptElement.onerror = () => {
       reject(
         new Error(
-          `Failed to load navigation item script from path: ${scriptSource}`
+          `Failed to load navigation item script from path: ${resolvedUrl}`
         )
       );
     };
