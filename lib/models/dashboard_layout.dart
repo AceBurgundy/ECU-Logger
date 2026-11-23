@@ -12,10 +12,10 @@ class CardConfig {
   /// Unique metric identifier matching [TelemetryMetric.id].
   final String metricId;
 
-  /// Horizontal column span on the 2-column grid: 1 = half width, 2 = full width.
+  /// Horizontal column span on the 4-column grid (1..4). Default on install is 2.
   final int colSpan;
 
-  /// Vertical row span: 1 = standard height, 2 = double/tall height.
+  /// Vertical row span on the grid (1..4). Default on install is 2.
   final int rowSpan;
 
   /// Custom override font size for the card title label.
@@ -30,8 +30,8 @@ class CardConfig {
   /// Creates a [CardConfig] instance.
   const CardConfig({
     required this.metricId,
-    this.colSpan = 1,
-    this.rowSpan = 1,
+    this.colSpan = 2,
+    this.rowSpan = 2,
     this.titleFontSize,
     this.valueFontSize,
     this.unitFontSize,
@@ -72,8 +72,8 @@ class CardConfig {
   factory CardConfig.fromJson(Map<String, dynamic> json) {
     return CardConfig(
       metricId: json['metric_id'] as String? ?? 'rpm',
-      colSpan: (json['col_span'] as num?)?.toInt() ?? 1,
-      rowSpan: (json['row_span'] as num?)?.toInt() ?? 1,
+      colSpan: ((json['col_span'] as num?)?.toInt() ?? 2).clamp(1, 4),
+      rowSpan: ((json['row_span'] as num?)?.toInt() ?? 2).clamp(1, 4),
       titleFontSize: (json['title_font_size'] as num?)?.toDouble(),
       valueFontSize: (json['value_font_size'] as num?)?.toDouble(),
       unitFontSize: (json['unit_font_size'] as num?)?.toDouble(),
@@ -150,19 +150,19 @@ class DashboardDesign {
     );
   }
 
-  /// Creates a default baseline design with standard telemetry parameters.
+  /// Creates a default baseline design with standard telemetry parameters (2x2 on 4-column grid).
   factory DashboardDesign.createDefault({String id = 'default_design', String name = 'Factory Cockpit'}) {
     return DashboardDesign(
       id: id,
       name: name,
       createdAt: DateTime.now(),
       cards: const <CardConfig>[
-        CardConfig(metricId: 'rpm', colSpan: 1, rowSpan: 1),
-        CardConfig(metricId: 'tps', colSpan: 1, rowSpan: 1),
-        CardConfig(metricId: 'map', colSpan: 1, rowSpan: 1),
-        CardConfig(metricId: 've', colSpan: 1, rowSpan: 1),
-        CardConfig(metricId: 'ect', colSpan: 1, rowSpan: 1),
-        CardConfig(metricId: 'vva', colSpan: 1, rowSpan: 1),
+        CardConfig(metricId: 'rpm', colSpan: 2, rowSpan: 2),
+        CardConfig(metricId: 'tps', colSpan: 2, rowSpan: 2),
+        CardConfig(metricId: 'map', colSpan: 2, rowSpan: 2),
+        CardConfig(metricId: 've', colSpan: 2, rowSpan: 2),
+        CardConfig(metricId: 'ect', colSpan: 2, rowSpan: 2),
+        CardConfig(metricId: 'vva', colSpan: 2, rowSpan: 2),
       ],
     );
   }

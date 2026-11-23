@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../models/dashboard_layout.dart';
 import '../services/dashboard_layout_service.dart';
+import 'dashboard_flow_layout.dart';
 
 /// Modal dialog presenting a horizontal carousel of wireframe skeleton previews
 /// for all persisted cockpit designs, providing icon-only Delete and Preview actions.
@@ -258,56 +259,69 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
       builder: (BuildContext context, BoxConstraints constraints) {
         final double gridWidth = constraints.maxWidth;
         const double gap = 4.0;
-        final double halfWidth = (gridWidth - gap) / 2;
+        final double unitColWidth = (gridWidth - (3 * gap)) / 4.0;
+        const double unitRowHeight = 13.0;
+        final DashboardGridLayout layout = computeDashboardGridLayout(
+          cards: design.cards,
+          unitColWidth: unitColWidth,
+          unitRowHeight: unitRowHeight,
+          gap: gap,
+        );
 
         return SingleChildScrollView(
           physics: const NeverScrollableScrollPhysics(),
-          child: Wrap(
-            spacing: gap,
-            runSpacing: gap,
-            children: design.cards.map((CardConfig card) {
-              final double cardW = card.colSpan == 2 ? gridWidth : halfWidth;
-              final double cardH = card.rowSpan == 2 ? 52.0 : 26.0;
+          child: SizedBox(
+            width: gridWidth,
+            height: layout.totalHeight,
+            child: Stack(
+              children: design.cards.map((CardConfig card) {
+                final Rect? rect = layout.rects[card.metricId];
+                if (rect == null) return const SizedBox.shrink();
 
-              return Container(
-                width: cardW,
-                height: cardH,
-                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-                decoration: BoxDecoration(
-                  color: GitHubTheme.canvasInset,
-                  borderRadius: BorderRadius.circular(4.0),
-                  border: Border.all(
-                    color: GitHubTheme.borderDefault,
-                    width: 0.8,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 4.0,
-                      height: 4.0,
-                      decoration: const BoxDecoration(
-                        color: GitHubTheme.accent,
-                        shape: BoxShape.circle,
+                return Positioned(
+                  left: rect.left,
+                  top: rect.top,
+                  width: rect.width,
+                  height: rect.height,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
+                    decoration: BoxDecoration(
+                      color: GitHubTheme.canvasInset,
+                      borderRadius: BorderRadius.circular(4.0),
+                      border: Border.all(
+                        color: GitHubTheme.borderDefault,
+                        width: 0.8,
                       ),
                     ),
-                    const SizedBox(width: 4.0),
-                    Expanded(
-                      child: Text(
-                        card.metricId.toUpperCase(),
-                        style: const TextStyle(
-                          fontSize: 7.5,
-                          fontWeight: FontWeight.w600,
-                          color: GitHubTheme.fgSubtle,
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4.0,
+                          height: 4.0,
+                          decoration: const BoxDecoration(
+                            color: GitHubTheme.accent,
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        const SizedBox(width: 4.0),
+                        Expanded(
+                          child: Text(
+                            card.metricId.toUpperCase(),
+                            style: const TextStyle(
+                              fontSize: 7.5,
+                              fontWeight: FontWeight.w600,
+                              color: GitHubTheme.fgSubtle,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              );
-            }).toList(),
+                  ),
+                );
+              }).toList(),
+            ),
           ),
         );
       },

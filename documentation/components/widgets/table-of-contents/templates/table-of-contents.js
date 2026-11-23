@@ -47,13 +47,14 @@ export class TableOfContents extends Component {
      * @returns {void}
      */
     const handleItemSelect = (targetIdentifier) => {
-      /** @type {HTMLElement|null} */
-      const targetElement = document.getElementById(targetIdentifier);
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
       if (typeof this.onItemSelect === "function") {
         this.onItemSelect(targetIdentifier);
+      } else {
+        /** @type {HTMLElement|null} */
+        const targetElement = document.getElementById(targetIdentifier);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }
     };
 
@@ -77,23 +78,6 @@ export class TableOfContents extends Component {
         </ul>
       </div>
     `;
-
-    this.mounted = () => {
-      /** @type {HTMLElement|null} */
-      const containerElement = this.element || document.querySelector(".table-of-contents");
-      if (!containerElement) return;
-
-      containerElement.querySelectorAll(".table-of-contents__item-link").forEach((linkElement) => {
-        linkElement.addEventListener("click", (clickEvent) => {
-          clickEvent.preventDefault();
-          const targetIdentifier = linkElement.getAttribute("data-target-identifier");
-          if (targetIdentifier) {
-            this.activeHeadingSignal.value = targetIdentifier;
-            handleItemSelect(targetIdentifier);
-          }
-        });
-      });
-    };
   }
 }
 

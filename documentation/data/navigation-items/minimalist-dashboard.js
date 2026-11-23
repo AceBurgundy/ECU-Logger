@@ -1,43 +1,20 @@
-/**
- * @typedef {Object} NavigationItemHeader
- * @property {string} title - Header display title.
- * @property {string} description - High-level summary of the module.
- * @property {Array<{icon_name: string, badge_label: string}>} badge_list - Status badges.
- * @property {{image_path: string, shrink: boolean}} banner_image - Banner image configuration.
- * @property {{image_path: string, shrink: boolean}} mockup_card - Mockup presentation card.
- */
-
-/**
- * @typedef {Object} NavigationItemDefinition
- * @property {string} item_title - Title shown in navigation tree.
- * @property {string} icon_name - Material icon name.
- * @property {NavigationItemHeader} header_container - Header content container.
- * @property {Array<Object>} tab_list - Tabs containing section blocks and cockpit metrics.
- * @property {boolean} hide_tabs - Whether tab bar is hidden.
- * @property {boolean} hide_toc - Whether table of contents sidebar is hidden.
- */
-
 window.DOCUMENTATION_ITEMS = window.DOCUMENTATION_ITEMS || {};
 
-/** @type {NavigationItemDefinition} */
+/** @type {Object} */
 const minimalistDashboardDefinition = {
   item_title: "Minimalist Dashboard",
   icon_name: "speed",
   header_container: {
-    title: "Minimalist Cockpit & Customization Engine",
-    description: "High-contrast 2-column digital cockpit adhering to GitHub Primer dark aesthetics, featuring animated Edit Mode, drag reordering, fluid corner/edge card resizing, and typography controls.",
+    title: "Minimalist Cockpit & Fluid Edit Mode",
+    description: "High-contrast 4-column digital cockpit adhering to GitHub Primer dark aesthetics, featuring 2x2 default cards, pixel-tracked 4x4 resizing, physical slide-away reflow, and drag-only jiggle.",
     badge_list: [
-      { icon_name: "grid_view", badge_label: "2-Column Flow Layout" },
-      { icon_name: "animation", badge_label: "Smooth Wobble & Reflow" },
-      { icon_name: "open_with", badge_label: "Corner & Edge Resizing" },
-      { icon_name: "terminal", badge_label: "200-Line Rolling Drawer" }
+      { icon_name: "grid_view", badge_label: "4-Col Grid (2x2 Default)" },
+      { icon_name: "open_with", badge_label: "Up to 4x4 Resize" },
+      { icon_name: "animation", badge_label: "Physical Slide Reflow" },
+      { icon_name: "text_fields", badge_label: "Per-Card Font Sizing" }
     ],
     banner_image: {
-      image_path: "assets/icon.png",
-      shrink: true
-    },
-    mockup_card: {
-      image_path: "assets/dashboard.png",
+      image_path: "assets/edit_mode_selected.png",
       shrink: true
     }
   },
@@ -48,59 +25,69 @@ const minimalistDashboardDefinition = {
       section_blocks: [
         {
           block_type: "paragraph",
-          heading_title: "Cockpit Metrics & Layout",
-          content: "The dashboard presents high-contrast digital telemetry readouts arranged in an adaptive 2-column flow layout: Engine Speed (RPM), Throttle Position (TPS %), Manifold Absolute Pressure (MAP kPa), Real-time Volumetric Efficiency (VE %), Coolant Temperature (ECT °C), and Variable Valve Actuation (VVA Status)."
+          heading_title: "Cockpit Metrics & Default 2x2 Grid",
+          paragraph_text: "On fresh install, ECU Logger arranges six primary telemetry channels (RPM, TPS, MAP, VE%, ECT, and VVA) on a 4-column layout grid where every card consumes 2 columns by 2 rows. In View Mode, cards render flush against the dark GitHub canvas without noisy borders; disconnected channels display type-matched zero placeholders (00, 0%, 0.0, OFF) instead of dashes."
         },
         {
           block_type: "table",
           heading_title: "Cockpit Card Specifications",
-          columns: ["Card Label", "Unit", "Font", "Dynamic Visual Accent"],
-          rows: [
-            ["Engine Speed", "RPM", "Google Sans Code", "Turns Warning Amber at >= 7,400 RPM"],
-            ["Throttle (TPS)", "%", "Google Sans Code", "GitHub Accent Blue"],
-            ["Manifold Pressure", "kPa", "Google Sans Code", "GitHub Accent Blue"],
-            ["Volumetric Eff.", "%", "Google Sans Code", "Permanent Success Green Highlight"],
-            ["Coolant Temp", "°C", "Google Sans Code", "Danger Red at >= 100°C; Success Green at >= 60°C"],
-            ["VVA Cam Status", "HIGH/LOW-CAM", "Google Sans Code", "Active Warning Amber when engaged"]
+          table_headers: ["Card Label", "Unit", "Default Span", "Dynamic Visual Accent"],
+          table_rows: [
+            ["Engine Speed", "RPM", "2 cols x 2 rows", "Warning Amber when >= 7,400 RPM"],
+            ["Throttle (TPS)", "%", "2 cols x 2 rows", "GitHub Accent Blue"],
+            ["Manifold Pressure", "kPa", "2 cols x 2 rows", "GitHub Accent Blue"],
+            ["Volumetric Eff.", "%", "2 cols x 2 rows", "Permanent Success Green highlight"],
+            ["Coolant Temp", "°C", "2 cols x 2 rows", "Danger Red >= 100°C; Success Green >= 60°C"],
+            ["VVA Cam Status", "HIGH / OFF", "2 cols x 2 rows", "Active Warning Amber when High-Cam engaged"]
           ]
         }
       ]
     },
     {
-      tab_title: "Edit Mode & Animations",
+      tab_title: "Fluid Edit Mode & Animations",
       icon_name: "tune",
       section_blocks: [
         {
           block_type: "paragraph",
-          heading_title: "Interactive Jiggle & Reordering",
-          content: "Long-pressing any metric card triggers Edit Mode with an iOS-style cubic downscale entry animation, followed by continuous harmonic jiggling. As cards are dragged across the canvas, surrounding cards smoothly animate apart to open up drop targets."
+          heading_title: "Quiet Edit Entry & Smooth Exit Scale",
+          paragraph_text: "Pressing and holding anywhere on the dashboard smoothly scales cards into Edit Mode without distracting idle wobble. Tapping either Check (Save) or Cancel (Discard) reverses the entry animation controller while keeping the transform tree mounted, smoothly animating every card and border back to 1.0x View Mode scale."
+        },
+        {
+          block_type: "paragraph",
+          heading_title: "Drag-Only Jiggle & Physical Slide-Away Reflow",
+          paragraph_text: "Cards remain completely steady in Edit Mode until you hold and drag a card to move it. Once dragging starts, the lifted floating card and grid begin jiggling while surrounding cards physically slide out of the way using AnimatedPositioned and stable ValueKeys—opening a clear drop target whenever you hover over or between cards. Dropping immediately halts all jiggling."
+        },
+        {
+          block_type: "paragraph",
+          heading_title: "Pixel-Tracking Edge & Corner Resizing (Up to 4x4)",
+          paragraph_text: "Tapping any card selects it with a Bright Neon Yellow (0xFFCCFF00) border and reveals 8 interactive handles (4 corners and 4 edges) backed by unclipped 28px overlay touch targets. Dragging any edge or corner locks scroll competition, accounts for scale center-offset mathematically, follows the user's hand pixel-for-pixel in real time, and snaps smoothly to the nearest column (1..4) and row (1..4) upon release."
         },
         {
           block_type: "cards_container",
-          heading_title: "Edit Mode Features",
-          description: "Fluid gestures and fine-grained card customizations available during Edit Mode.",
+          heading_title: "Edit Mode Showcase",
+          description: "Live captures from Sam's Pixel 8 showing quiet edit entry, active neon resize handles, and custom card typography.",
           layout_type: "three_cards",
           cards: [
             {
-              title: "Smooth Entry & Lift",
-              description: "Cards downscale smoothly upon entering Edit Mode, and elevate to 1.05x with dimmed 0.45 opacity when lifted for dragging.",
-              label: "Animations",
+              title: "Quiet Edit Entry",
+              description: "Long-pressing scales cards smoothly to 0.90x with restored GitHub borders and zero idle jiggle until a drag begins.",
+              label: "Entry Animation",
               link: "",
               image_path: "assets/edit_mode.png",
               shrink: true
             },
             {
-              title: "Fluid Corner & Edge Resizing",
-              description: "8 interactive touch zones (4 corners and 4 edges) allow dragging to effortlessly toggle colSpan (1x to 2x) and rowSpan.",
-              label: "Customization",
+              title: "8-Point Pixel Resize",
+              description: "Unclipped edge & corner overlay zones track finger position 1:1 and snap cleanly from 1x1 up to 4x4.",
+              label: "Resizing",
               link: "",
               image_path: "assets/edit_mode_selected.png",
               shrink: true
             },
             {
               title: "Contextual Typography Editor",
-              description: "Selecting a card illuminates the middle Edit action button in Neon Yellow (0xFFCCFF00), opening the live Font Size dialog.",
-              label: "Styling",
+              description: "Selecting a card illuminates the Neon Yellow format-size action button between Cancel and Save.",
+              label: "Typography",
               link: "",
               image_path: "assets/font_dialog.png",
               shrink: true

@@ -84,7 +84,7 @@ export class App extends Component {
 
     /** @type {TopBar} */
     this.topBarComponent = new TopBar({
-      title: "Material Dialogs",
+      title: "ECU Logger",
       onMenuToggle: () => {
         this.toggleMobileDrawer();
       },
@@ -93,6 +93,9 @@ export class App extends Component {
         this.closeMobileDrawer();
       }
     });
+
+    /** @type {Array<Component>} */
+    this.activeViewportComponents = [];
 
     /** @type {Sidebar} */
     this.sidebarComponent = new Sidebar({
@@ -196,10 +199,10 @@ export class App extends Component {
       }
     };
 
-    window.addEventListener("resize", handleLayoutChange, { passive: true });
-    window.addEventListener("orientationchange", handleLayoutChange, { passive: true });
+    this.listen(window, "resize", handleLayoutChange, { passive: true });
+    this.listen(window, "orientationchange", handleLayoutChange, { passive: true });
     if (typeof window.screen !== "undefined" && window.screen.orientation) {
-      window.screen.orientation.addEventListener("change", handleLayoutChange);
+      this.listen(window.screen.orientation, "change", handleLayoutChange);
     }
   }
 
@@ -211,7 +214,7 @@ export class App extends Component {
     /** @type {HTMLElement|null} */
     const backdropElement = document.querySelector("[data-app-backdrop]");
     if (backdropElement) {
-      backdropElement.addEventListener("click", () => {
+      this.listen(backdropElement, "click", () => {
         this.closeMobileDrawer();
       });
     }
@@ -452,8 +455,8 @@ export class App extends Component {
 
       /** @type {string} */
       let contentHtml;
-      /** @type {function(): void} */
-      let mountContent;
+      /** @type {Component} */
+      let contentComponent;
 
       if (navigationPath === this.dashboardPath) {
         /** @type {Dashboard} */
@@ -466,7 +469,7 @@ export class App extends Component {
           }
         });
         contentHtml = dashboardComponent.toString();
-        mountContent = () => { dashboardComponent.__mount?.(); };
+        contentComponent = dashboardComponent;
       } else {
         /** @type {DocumentationContent} */
         const documentationContentComponent = new DocumentationContent({
@@ -481,7 +484,7 @@ export class App extends Component {
           }
         });
         contentHtml = documentationContentComponent.toString();
-        mountContent = () => { documentationContentComponent.__mount?.(); };
+        contentComponent = documentationContentComponent;
       }
 
       // Fetch or use cached footer specification
@@ -489,7 +492,7 @@ export class App extends Component {
       const footerData = await this.fetchNavigationItemData(this.footerPath).catch(() => ({}));
       /** @type {Footer} */
       const footerComponent = new Footer({
-        brandName: footerData.brand_name || "Material Design",
+        brandName: footerData.brand_name || "ECU Logger",
         brandDescription: footerData.brand_description || "",
         socialLinks: footerData.social_links || [],
         columns: footerData.columns || [],
@@ -497,9 +500,14 @@ export class App extends Component {
         copyrightText: footerData.copyright_text || ""
       });
 
+      this.activeViewportComponents.forEach((mountedComponent) => {
+        mountedComponent.__unmount?.();
+      });
+      this.activeViewportComponents = [bannerComponent, contentComponent, footerComponent];
+
       viewportElement.innerHTML = bannerComponent.toString() + contentHtml + footerComponent.toString();
       bannerComponent.__mount?.();
-      mountContent();
+      contentComponent.__mount?.();
       footerComponent.__mount?.();
 
       viewportElement.scrollTo({ top: 0, behavior: "smooth" });

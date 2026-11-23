@@ -102,10 +102,12 @@ class _HomeScreenState extends State<HomeScreen>
     if (_isEditMode || _layoutService.isFreezePreview) return;
     setState(() => _isEditMode = true);
     _layoutService.startEditMode();
-    _shakeController.repeat(reverse: true);
+    // Do NOT jiggle on Edit Mode entry; jiggle runs only while holding & dragging a card.
+    _shakeController.stop();
+    _shakeController.reset();
     ToastService.show(
       context,
-      'Edit Mode active. Long-press cards to drag, tap to resize.',
+      'Edit Mode active. Tap a card to resize, or hold & drag to reorder.',
       type: ToastType.info,
     );
   }
@@ -361,15 +363,19 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
               const SizedBox(width: 12.0),
-              Text(
-                isFreezePreview
-                    ? 'Preview Mode'
-                    : (_isEditMode ? 'Edit Dashboard' : 'ECU Logger'),
-                style: const TextStyle(
-                  fontFamily: GitHubTheme.fontCanela,
-                  fontSize: 20.0,
-                  fontWeight: FontWeight.w700,
-                  color: GitHubTheme.fgDefault,
+              Flexible(
+                child: Text(
+                  isFreezePreview
+                      ? 'Preview Mode'
+                      : (_isEditMode ? 'Edit Dashboard' : 'ECU Logger'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: GitHubTheme.fontCanela,
+                    fontSize: 20.0,
+                    fontWeight: FontWeight.w700,
+                    color: GitHubTheme.fgDefault,
+                  ),
                 ),
               ),
             ],
@@ -461,7 +467,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
 
-                // Responsive 2-Column Reflow Flow Layout Dashboard
+                // Responsive 4-Column Reflow Layout Dashboard (default 2x2 cards)
                 Expanded(
                   child: Stack(
                     children: [
@@ -475,6 +481,14 @@ class _HomeScreenState extends State<HomeScreen>
                           activeMetricId: _activeMetricId,
                           onActiveMetricChanged: (String? id) {
                             setState(() => _activeMetricId = id);
+                          },
+                          onDraggingChanged: (bool isDragging) {
+                            if (isDragging) {
+                              _shakeController.repeat(reverse: true);
+                            } else {
+                              _shakeController.stop();
+                              _shakeController.reset();
+                            }
                           },
                           onTriggerEditMode: () {
                             if (!isFreezePreview) _enterEditMode();

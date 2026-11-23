@@ -1,41 +1,19 @@
-/**
- * @typedef {Object} NavigationItemHeader
- * @property {string} title - Header display title.
- * @property {string} description - High-level summary of the module.
- * @property {Array<{icon_name: string, badge_label: string}>} badge_list - Status badges.
- * @property {{image_path: string, shrink: boolean}} banner_image - Banner image configuration.
- * @property {{image_path: string, shrink: boolean}} mockup_card - Mockup presentation card.
- */
-
-/**
- * @typedef {Object} NavigationItemDefinition
- * @property {string} item_title - Title shown in navigation tree.
- * @property {string} icon_name - Material icon name.
- * @property {NavigationItemHeader} header_container - Header content container.
- * @property {Array<Object>} tab_list - Tabs containing section blocks and architecture.
- * @property {boolean} hide_tabs - Whether tab bar is hidden.
- * @property {boolean} hide_toc - Whether table of contents sidebar is hidden.
- */
-
 window.DOCUMENTATION_ITEMS = window.DOCUMENTATION_ITEMS || {};
 
-/** @type {NavigationItemDefinition} */
+/** @type {Object} */
 const architectureAndPipelineDefinition = {
   item_title: "Architecture & Pipeline",
   icon_name: "account_tree",
   header_container: {
     title: "System Architecture & Telemetry Pipeline",
-    description: "From passive ELM327 CAN broadcast sniffing to real-time Volumetric Efficiency calculation and multi-format disk serialization.",
+    description: "From passive ELM327 CAN broadcast sniffing and 4-column grid packing to real-time Volumetric Efficiency calculation and multi-format disk serialization.",
     badge_list: [
-      { icon_name: "layers", badge_label: "Decoupled Layers" },
-      { icon_name: "sync", badge_label: "Reactive State Stream" }
+      { icon_name: "layers", badge_label: "Decoupled Modules" },
+      { icon_name: "sync", badge_label: "Reactive Streams" },
+      { icon_name: "grid_4x4", badge_label: "2D Grid Packer" }
     ],
     banner_image: {
-      image_path: "assets/icon.png",
-      shrink: true
-    },
-    mockup_card: {
-      image_path: "assets/scale.png",
+      image_path: "assets/console_log.png",
       shrink: true
     }
   },
@@ -47,14 +25,21 @@ const architectureAndPipelineDefinition = {
         {
           block_type: "paragraph",
           heading_title: "Data Flow Architecture",
-          content: "The ECU Logger application is divided into five isolated modules: BleService (BLE discovery & transport), Elm327Protocol (frame parsing), TelemetryEngine (Speed-Density VE & hysteresis state machine), FileLoggerService (buffered disk writes), and UI Layer (Option 3 Dashboard & Lock Overlay)."
+          paragraph_text: "ECU Logger is structured into cleanly separated runtime layers: BleService (BLE peripheral discovery and UART streaming), Elm327Protocol (AT command loops and raw CAN/PID frame parsing), TelemetryEngine (Speed-Density VE math and VVA hysteresis), DashboardLayoutService (JSON layout persistence and frozen previews), FileLoggerService (buffered CSV/LOG/JSON sinks), and the DashboardFlowLayout 4-column animated grid."
         },
         {
-          block_type: "code",
+          block_type: "code_block",
           heading_title: "Telemetry Pipeline Flow",
-          language: "dart",
-          code_content: "// 1. BLE Rx Buffer -> Elm327Protocol\nfinal rawCan = Elm327Protocol.parseRawCanFrame(line);\n\n// 2. Telemetry Engine Metrics Update\n_updateMetrics(newRpm: rpm, newTps: tps);\n\n// 3. Volumetric Efficiency Formula\nfinal veDensity = (mapKpa / baroKpa) * (293.15 / (273.15 + iatC)) * 100.0;\nfinal veCorrected = veDensity * (1.0 + ((stft + ltft) / 100.0));\n\n// 4. Disk Sink Stream\nFileLoggerService.instance.logTelemetryRow(...);",
-          filename: "pipeline_overview.dart"
+          header_label: "Dart • Telemetry Pipeline",
+          language_identifier: "dart",
+          code_content: "// 1. BLE Rx Buffer -> Elm327Protocol\nfinal rawCan = Elm327Protocol.parseRawCanFrame(line);\n\n// 2. Telemetry Engine Metrics Update\n_updateMetrics(newRpm: rpm, newTps: tps);\n\n// 3. Speed-Density Volumetric Efficiency Formula\nfinal veDensity = (mapKpa / baroKpa) * (293.15 / (273.15 + iatC)) * 100.0;\nfinal veCorrected = veDensity * (1.0 + ((stft + ltft) / 100.0));\n\n// 4. Buffered Disk Sink\nFileLoggerService.instance.logTelemetryRow(...);"
+        },
+        {
+          block_type: "code_block",
+          heading_title: "Order-Preserving 4-Column 2D Packer",
+          header_label: "Dart • computeDashboardGridLayout",
+          language_identifier: "dart",
+          code_content: "final DashboardGridLayout layout = computeDashboardGridLayout(\n  cards: displayCards,\n  unitColWidth: (availableWidth - (3 * gap)) / 4.0,\n  unitRowHeight: 52.0,\n  gap: isEditMode ? 14.0 : 12.0,\n);"
         }
       ]
     }

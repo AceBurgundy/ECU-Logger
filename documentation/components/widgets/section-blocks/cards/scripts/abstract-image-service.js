@@ -2,7 +2,7 @@
  * Storage key for persistent card image cache in localStorage.
  * @type {string}
  */
-const CARD_IMAGE_CACHE_STORAGE_KEY = "material_dialogs_card_image_cache";
+const CARD_IMAGE_CACHE_STORAGE_KEY = "ecu_logger_card_image_cache";
 
 /**
  * In-memory image cache map for fast sub-millisecond retrieval.

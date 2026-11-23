@@ -13,5 +13,7 @@ new Root({
       super({ documentationData });
     }
   },
-  path: "/"
+  path: "/",
+  useHash: true,
+  persistent: true
 }).render();

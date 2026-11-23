@@ -72,7 +72,7 @@ export class Sidebar extends Component {
       });
 
       return new NavigationCategory({
-        categoryTitle: group.category_name,
+        categoryTitle: group.category_title || group.category_name || "",
         items,
         activeItemSignal: this.activeItemSignal,
         onItemSelect: this.onItemSelect,
@@ -114,12 +114,12 @@ export class Sidebar extends Component {
           class="sidebar__branding"
           role="button"
           tabindex="0"
-          aria-label="Navigate to Material Dialogs Dashboard"
+          aria-label="Navigate to ECU Logger Dashboard"
           onclick=${handleBrandClick}
           onkeydown=${handleBrandKeyDown}
         >
-          <img class="sidebar__branding-logo" src="./assets/icon.png" alt="Material Dialogs Icon" />
-          <span class="sidebar__branding-title">Material Dialogs</span>
+          <img class="sidebar__branding-logo" src="./assets/icon.png" alt="ECU Logger Icon" />
+          <span class="sidebar__branding-title">ECU Logger</span>
         </div>
         <div class="sidebar__header">
           ${searchPillComponent}
@@ -206,7 +206,7 @@ export class Sidebar extends Component {
       return;
     }
 
-    backText.textContent = `Main Menu \u2022 ${categoryGroup.category_name}`;
+    backText.textContent = `Main Menu \u2022 ${categoryGroup.category_title || categoryGroup.category_name || ""}`;
     itemsContainer.innerHTML = "";
 
     const activePath = this.activeItemSignal?.value || "";

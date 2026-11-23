@@ -41,6 +41,13 @@ class MetricCard extends StatelessWidget {
   /// Optional customized font size for the unit pill badge.
   final double? unitFontSize;
 
+  /// Whether edge and corner resize handles on this card should register gestures directly.
+  /// Set to false when an outer overlay layer handles unclipped border/corner hit testing.
+  final bool interactiveHandles;
+
+  /// Whether this card is currently being actively dragged to resize (disables container animation lag).
+  final bool isResizing;
+
   /// Optional callback invoked when the user taps the card.
   final VoidCallback? onTap;
 
@@ -78,6 +85,8 @@ class MetricCard extends StatelessWidget {
     this.isHighlight = false,
     this.isEditMode = false,
     this.isActive = false,
+    this.interactiveHandles = true,
+    this.isResizing = false,
     this.titleFontSize,
     this.valueFontSize,
     this.unitFontSize,
@@ -134,7 +143,9 @@ class MetricCard extends StatelessWidget {
                 : null))
         : null;
 
-    final Widget cardBody = Container(
+    final Widget cardBody = AnimatedContainer(
+      duration: isResizing ? Duration.zero : const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
       padding: EdgeInsets.symmetric(
         horizontal: isEditMode ? 12.0 : 8.0,
         vertical: isEditMode ? 10.0 : 6.0,
@@ -226,30 +237,30 @@ class MetricCard extends StatelessWidget {
       ),
     );
 
-    return InkWell(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      borderRadius: BorderRadius.circular(12.0),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          cardBody,
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          borderRadius: BorderRadius.circular(12.0),
+          child: cardBody,
+        ),
 
-          // 4 Draggable Corner Handles when selected active in Edit Mode (P3.T4)
-          if (isEditMode && isActive) ...[
-            // Edge handles
-            _buildEdgeHandle(Alignment.centerLeft),
-            _buildEdgeHandle(Alignment.centerRight),
-            _buildEdgeHandle(Alignment.topCenter),
-            _buildEdgeHandle(Alignment.bottomCenter),
-            // Corner handles
-            _buildCornerHandle(Alignment.topLeft),
-            _buildCornerHandle(Alignment.topRight),
-            _buildCornerHandle(Alignment.bottomLeft),
-            _buildCornerHandle(Alignment.bottomRight),
-          ],
+        // Visual + optional standalone interactive handles on all 4 edges & 4 corners when active
+        if (isEditMode && isActive) ...[
+          // Edge handles
+          _buildEdgeHandle(Alignment.centerLeft),
+          _buildEdgeHandle(Alignment.centerRight),
+          _buildEdgeHandle(Alignment.topCenter),
+          _buildEdgeHandle(Alignment.bottomCenter),
+          // Corner handles
+          _buildCornerHandle(Alignment.topLeft),
+          _buildCornerHandle(Alignment.topRight),
+          _buildCornerHandle(Alignment.bottomLeft),
+          _buildCornerHandle(Alignment.bottomRight),
         ],
-      ),
+      ],
     );
   }
 
@@ -260,60 +271,64 @@ class MetricCard extends StatelessWidget {
     double? right;
 
     if (alignment == Alignment.centerLeft) {
-      left = -7.0;
+      left = -3.0;
       top = 16.0;
       bottom = 16.0;
     } else if (alignment == Alignment.centerRight) {
-      right = -7.0;
+      right = -3.0;
       top = 16.0;
       bottom = 16.0;
     } else if (alignment == Alignment.topCenter) {
-      top = -7.0;
+      top = -3.0;
       left = 16.0;
       right = 16.0;
     } else if (alignment == Alignment.bottomCenter) {
-      bottom = -7.0;
+      bottom = -3.0;
       left = 16.0;
       right = 16.0;
     }
 
     final bool isHorizontal = (alignment == Alignment.topCenter || alignment == Alignment.bottomCenter);
 
+    final Widget pill = Center(
+      child: Container(
+        width: isHorizontal ? 32.0 : 6.0,
+        height: isHorizontal ? 6.0 : 32.0,
+        decoration: BoxDecoration(
+          color: const Color(0xFFCCFF00),
+          borderRadius: BorderRadius.circular(3.0),
+          border: Border.all(color: Colors.black, width: 1.0),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black54,
+              blurRadius: 3.0,
+              offset: Offset(0.0, 1.0),
+            ),
+          ],
+        ),
+      ),
+    );
+
     return Positioned(
       top: top,
       bottom: bottom,
       left: left,
       right: right,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (DragStartDetails details) {
-          onEdgeDragStart?.call(details, alignment);
-        },
-        onPanUpdate: (DragUpdateDetails details) {
-          onEdgeDragUpdate?.call(details, alignment);
-        },
-        onPanEnd: (DragEndDetails details) {
-          onEdgeDragEnd?.call(details, alignment);
-        },
-        child: Center(
-          child: Container(
-            width: isHorizontal ? 32.0 : 6.0,
-            height: isHorizontal ? 6.0 : 32.0,
-            decoration: BoxDecoration(
-              color: const Color(0xFFCCFF00),
-              borderRadius: BorderRadius.circular(3.0),
-              border: Border.all(color: Colors.black, width: 1.0),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black54,
-                  blurRadius: 3.0,
-                  offset: Offset(0.0, 1.0),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      child: interactiveHandles
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (DragStartDetails details) {
+                onEdgeDragStart?.call(details, alignment);
+              },
+              onPanUpdate: (DragUpdateDetails details) {
+                onEdgeDragUpdate?.call(details, alignment);
+              },
+              onPanEnd: (DragEndDetails details) {
+                onEdgeDragEnd?.call(details, alignment);
+              },
+              child: pill,
+            )
+          : IgnorePointer(child: pill),
     );
   }
 
@@ -337,39 +352,43 @@ class MetricCard extends StatelessWidget {
       right = -8.0;
     }
 
+    final Widget dot = Container(
+      width: 20.0,
+      height: 20.0,
+      decoration: BoxDecoration(
+        color: const Color(0xFFCCFF00),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black, width: 1.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black54,
+            blurRadius: 3.0,
+            offset: Offset(0.0, 1.0),
+          ),
+        ],
+      ),
+    );
+
     return Positioned(
       top: top,
       bottom: bottom,
       left: left,
       right: right,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onPanStart: (DragStartDetails details) {
-          onCornerDragStart?.call(details, alignment);
-        },
-        onPanUpdate: (DragUpdateDetails details) {
-          onCornerDragUpdate?.call(details, alignment);
-        },
-        onPanEnd: (DragEndDetails details) {
-          onCornerDragEnd?.call(details, alignment);
-        },
-        child: Container(
-          width: 20.0,
-          height: 20.0,
-          decoration: BoxDecoration(
-            color: const Color(0xFFCCFF00),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.black, width: 1.5),
-            boxShadow: const [
-              BoxShadow(
-                color: Colors.black54,
-                blurRadius: 3.0,
-                offset: Offset(0.0, 1.0),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: interactiveHandles
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanStart: (DragStartDetails details) {
+                onCornerDragStart?.call(details, alignment);
+              },
+              onPanUpdate: (DragUpdateDetails details) {
+                onCornerDragUpdate?.call(details, alignment);
+              },
+              onPanEnd: (DragEndDetails details) {
+                onCornerDragEnd?.call(details, alignment);
+              },
+              child: dot,
+            )
+          : IgnorePointer(child: dot),
     );
   }
 }

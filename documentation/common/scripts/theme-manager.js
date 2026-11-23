@@ -1,3 +1,6 @@
+const CARD_PALETTE_KEY = "ecu-logger-palette";
+const CARD_THEME_KEY = "ecu-logger-theme";
+
 /**
  * Available color palette names for the documentation theme system.
  * @type {Array<string>}
@@ -22,7 +25,7 @@ export function setPalette(paletteName) {
   if (AVAILABLE_PALETTES.includes(paletteName)) {
     document.documentElement.setAttribute("data-palette", paletteName);
     try {
-      localStorage.setItem("material-dialogs-palette", paletteName);
+      localStorage.setItem(CARD_PALETTE_KEY, paletteName);
     } catch {
       // Ignore storage errors in private browsing modes
     }
@@ -37,7 +40,7 @@ export function setPalette(paletteName) {
 export function setThemeMode(themeMode) {
   document.documentElement.setAttribute("data-theme", themeMode);
   try {
-    localStorage.setItem("material-dialogs-theme", themeMode);
+    localStorage.setItem(CARD_THEME_KEY, themeMode);
   } catch {
     // Ignore storage errors in private browsing modes
   }
@@ -84,8 +87,8 @@ export function initializeTheme() {
   let savedTheme = null;
 
   try {
-    savedPalette = localStorage.getItem("material-dialogs-palette");
-    savedTheme = localStorage.getItem("material-dialogs-theme");
+    savedPalette = localStorage.getItem(CARD_PALETTE_KEY);
+    savedTheme = localStorage.getItem(CARD_THEME_KEY);
   } catch {
     // Fallback if localStorage is inaccessible
   }
