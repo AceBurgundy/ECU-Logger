@@ -93,6 +93,10 @@ export class SearchModal extends Component {
           });
         });
         resultsContainer.innerHTML = itemComponents.map(item => item.toString()).join("");
+        itemComponents.forEach(item => item.__mount?.());
+        resultsContainer.querySelectorAll("[data-lite-evt]").forEach((elementNode) => {
+          elementNode.removeAttribute("data-lite-evt");
+        });
       };
 
       subscribeToModalState((isOpen) => {

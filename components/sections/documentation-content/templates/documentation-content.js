@@ -324,6 +324,10 @@ export class DocumentationContent extends Component {
         window.Prism.highlightAll();
       }
     };
+
+    this.beforeUnmount = () => {
+      this.tabsComponent?.__unmount?.();
+    };
   }
 
   /**
@@ -572,10 +576,6 @@ export class DocumentationContent extends Component {
       }
     };
 
-    if (scrollContainer === window) {
-      window.addEventListener("scroll", handleScroll, { passive: true });
-    } else {
-      scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
-    }
+    this.listen(scrollContainer, "scroll", handleScroll, { passive: true });
   }
 }

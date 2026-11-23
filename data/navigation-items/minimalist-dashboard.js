@@ -33,12 +33,12 @@ const minimalistDashboardDefinition = {
           heading_title: "Cockpit Card Specifications",
           table_headers: ["Card Label", "Unit", "Default Span", "Dynamic Visual Accent"],
           table_rows: [
-            ["Engine Speed", "RPM", "2 cols x 2 rows", "Warning Amber when >= 7,400 RPM"],
+            ["Engine Speed", "RPM", "2 cols x 2 rows", "GitHub Accent Blue highlight when >= 7,400 RPM"],
             ["Throttle (TPS)", "%", "2 cols x 2 rows", "GitHub Accent Blue"],
             ["Manifold Pressure", "kPa", "2 cols x 2 rows", "GitHub Accent Blue"],
-            ["Volumetric Eff.", "%", "2 cols x 2 rows", "Permanent Success Green highlight"],
-            ["Coolant Temp", "°C", "2 cols x 2 rows", "Danger Red >= 100°C; Success Green >= 60°C"],
-            ["VVA Cam Status", "HIGH / OFF", "2 cols x 2 rows", "Active Warning Amber when High-Cam engaged"]
+            ["Volumetric Eff.", "%", "2 cols x 2 rows", "Success Green highlight when corrected VE active"],
+            ["Coolant Temp", "°C", "2 cols x 2 rows", "GitHub Accent Blue highlight when >= 100°C"],
+            ["VVA Cam Status", "CAM", "2 cols x 2 rows", "Active Warning Amber when High-Cam engaged (ACTIVE / INACTIVE / OFF)"]
           ]
         }
       ]

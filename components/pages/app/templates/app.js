@@ -150,6 +150,10 @@ export class App extends Component {
     `;
 
     this.mounted = () => {
+      // Strip data-lite-evt from persistent shell elements once Root's mountQueuedComponents
+      // has hydrated them, so subsequent viewport component __mount/__unmount cycles never
+      // re-capture or tear down TopBar, Sidebar, or SearchModal listeners.
+      this.isolatePersistentShellEvents();
       this.attachBackdropListener();
       this.attachWindowResizeListener();
       if (initialPath) {
@@ -185,6 +189,23 @@ export class App extends Component {
         });
       }, 800);
     }
+  }
+
+  /**
+   * Removes data-lite-evt attributes from persistent shell containers after their initial
+   * hydration so dynamic viewport mounts/unmounts cannot strip persistent shell handlers.
+   * @returns {void}
+   */
+  isolatePersistentShellEvents() {
+    ["topBar", "sidebar", "searchModalBackdrop"].forEach((shellId) => {
+      /** @type {HTMLElement|null} */
+      const shellRoot = document.getElementById(shellId);
+      if (shellRoot) {
+        shellRoot.querySelectorAll("[data-lite-evt]").forEach((elementNode) => {
+          elementNode.removeAttribute("data-lite-evt");
+        });
+      }
+    });
   }
 
   /**
