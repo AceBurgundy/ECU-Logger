@@ -6,6 +6,20 @@
     <title>Documentation Engine | Material Design 3</title>
     <meta name="description" content="Dynamic Material Design 3 documentation engine loaded from structured JSON specifications.">
 
+    <!-- Base tag for GitHub Pages directory resolution -->
+    <script>
+      (function() {
+        var base = document.createElement('base');
+        var path = window.location.pathname;
+        if (!path.endsWith('/')) {
+          var lastSlash = path.lastIndexOf('/');
+          path = path.substring(0, lastSlash + 1);
+        }
+        base.href = window.location.origin + path;
+        document.head.appendChild(base);
+      })();
+    </script>
+
     <!-- Google Fonts & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
