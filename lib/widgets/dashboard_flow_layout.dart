@@ -13,10 +13,11 @@ import '../services/telemetry_engine.dart';
 import 'metric_card.dart';
 import 'font_size_dialog.dart';
 
-/// Responsive 2-column reflow flow layout for telemetry cards.
+/// Responsive 4-column reflow flow layout for telemetry cards.
 /// Provides view-mode flush styling, smooth edit entry scale animation,
 /// continuous jiggle animation in Edit Mode, drag-and-drop reordering with reflow preview,
-/// active card selection with bright neon yellow border, corner and edge resizing with low friction,
+/// active card selection with bright neon yellow border, corner and edge resizing that follows the hand
+/// and snaps to the nearest column/row on release (up to 4 columns and 4 rows),
 /// and on-card typography customization.
 class DashboardFlowLayout extends StatefulWidget {
   /// Ordered list of card configurations.
@@ -77,9 +78,10 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
   late final AnimationController _entryAnimationController;
   late final Animation<double> _entryScaleAnimation;
 
-  // Sensitivity thresholds for dragging corners/edges
-  double _accumulatedDeltaX = 0.0;
-  double _accumulatedDeltaY = 0.0;
+  // Real-time interactive drag resizing state
+  String? _resizingMetricId;
+  double _liveDragDeltaW = 0.0;
+  double _liveDragDeltaH = 0.0;
 
   String? get currentActiveMetricId => widget.activeMetricId ?? _internalActiveMetricId;
 
@@ -98,7 +100,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     _internalActiveMetricId = widget.activeMetricId;
     _entryAnimationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 250),
+      duration: const Duration(milliseconds: 280),
       value: widget.isEditMode ? 1.0 : 0.0,
     );
     _entryScaleAnimation = CurvedAnimation(
@@ -121,6 +123,9 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
         _internalActiveMetricId = null;
         _draggedMetricId = null;
         _hoverDropIndex = null;
+        _resizingMetricId = null;
+        _liveDragDeltaW = 0.0;
+        _liveDragDeltaH = 0.0;
       }
     }
   }
@@ -131,107 +136,102 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     super.dispose();
   }
 
-  void _handleCornerDragUpdate(DragUpdateDetails details, Alignment corner, CardConfig card) {
-    _accumulatedDeltaX += details.delta.dx;
-    _accumulatedDeltaY += details.delta.dy;
-
-    int newColSpan = card.colSpan;
-    int newRowSpan = card.rowSpan;
-    const double threshold = 18.0;
-
-    // Horizontal resize logic
-    if (corner == Alignment.topRight || corner == Alignment.bottomRight) {
-      if (_accumulatedDeltaX > threshold && card.colSpan < 2) {
-        newColSpan = 2;
-        _accumulatedDeltaX = 0.0;
-      } else if (_accumulatedDeltaX < -threshold && card.colSpan > 1) {
-        newColSpan = 1;
-        _accumulatedDeltaX = 0.0;
-      }
-    } else if (corner == Alignment.topLeft || corner == Alignment.bottomLeft) {
-      if (_accumulatedDeltaX < -threshold && card.colSpan < 2) {
-        newColSpan = 2;
-        _accumulatedDeltaX = 0.0;
-      } else if (_accumulatedDeltaX > threshold && card.colSpan > 1) {
-        newColSpan = 1;
-        _accumulatedDeltaX = 0.0;
-      }
-    }
-
-    // Vertical resize logic
-    if (corner == Alignment.bottomLeft || corner == Alignment.bottomRight) {
-      if (_accumulatedDeltaY > threshold && card.rowSpan < 2) {
-        newRowSpan = 2;
-        _accumulatedDeltaY = 0.0;
-      } else if (_accumulatedDeltaY < -threshold && card.rowSpan > 1) {
-        newRowSpan = 1;
-        _accumulatedDeltaY = 0.0;
-      }
-    } else if (corner == Alignment.topLeft || corner == Alignment.topRight) {
-      if (_accumulatedDeltaY < -threshold && card.rowSpan < 2) {
-        newRowSpan = 2;
-        _accumulatedDeltaY = 0.0;
-      } else if (_accumulatedDeltaY > threshold && card.rowSpan > 1) {
-        newRowSpan = 1;
-        _accumulatedDeltaY = 0.0;
-      }
-    }
-
-    if (newColSpan != card.colSpan || newRowSpan != card.rowSpan) {
-      widget.onUpdateCard(card.copyWith(colSpan: newColSpan, rowSpan: newRowSpan));
-    }
+  void _handleCornerDragStart(DragStartDetails details, Alignment corner, CardConfig card) {
+    setState(() {
+      _resizingMetricId = card.metricId;
+      _liveDragDeltaW = 0.0;
+      _liveDragDeltaH = 0.0;
+    });
   }
 
-  void _handleEdgeDragUpdate(DragUpdateDetails details, Alignment edge, CardConfig card) {
-    _accumulatedDeltaX += details.delta.dx;
-    _accumulatedDeltaY += details.delta.dy;
+  void _handleCornerDragUpdate(
+    DragUpdateDetails details,
+    Alignment corner,
+    CardConfig card,
+    double unitColWidth,
+    double unitRowHeight,
+    double gap,
+  ) {
+    double dw = details.delta.dx;
+    double dh = details.delta.dy;
 
-    int newColSpan = card.colSpan;
-    int newRowSpan = card.rowSpan;
-    const double threshold = 18.0;
+    if (corner == Alignment.topLeft) {
+      dw = -dw;
+      dh = -dh;
+    } else if (corner == Alignment.topRight) {
+      dh = -dh;
+    } else if (corner == Alignment.bottomLeft) {
+      dw = -dw;
+    }
+
+    setState(() {
+      _liveDragDeltaW += dw;
+      _liveDragDeltaH += dh;
+    });
+  }
+
+  void _handleEdgeDragStart(DragStartDetails details, Alignment edge, CardConfig card) {
+    setState(() {
+      _resizingMetricId = card.metricId;
+      _liveDragDeltaW = 0.0;
+      _liveDragDeltaH = 0.0;
+    });
+  }
+
+  void _handleEdgeDragUpdate(
+    DragUpdateDetails details,
+    Alignment edge,
+    CardConfig card,
+    double unitColWidth,
+    double unitRowHeight,
+    double gap,
+  ) {
+    double dw = 0.0;
+    double dh = 0.0;
 
     if (edge == Alignment.centerRight) {
-      if (_accumulatedDeltaX > threshold && card.colSpan < 2) {
-        newColSpan = 2;
-        _accumulatedDeltaX = 0.0;
-      } else if (_accumulatedDeltaX < -threshold && card.colSpan > 1) {
-        newColSpan = 1;
-        _accumulatedDeltaX = 0.0;
-      }
+      dw = details.delta.dx;
     } else if (edge == Alignment.centerLeft) {
-      if (_accumulatedDeltaX < -threshold && card.colSpan < 2) {
-        newColSpan = 2;
-        _accumulatedDeltaX = 0.0;
-      } else if (_accumulatedDeltaX > threshold && card.colSpan > 1) {
-        newColSpan = 1;
-        _accumulatedDeltaX = 0.0;
-      }
+      dw = -details.delta.dx;
     } else if (edge == Alignment.bottomCenter) {
-      if (_accumulatedDeltaY > threshold && card.rowSpan < 2) {
-        newRowSpan = 2;
-        _accumulatedDeltaY = 0.0;
-      } else if (_accumulatedDeltaY < -threshold && card.rowSpan > 1) {
-        newRowSpan = 1;
-        _accumulatedDeltaY = 0.0;
-      }
+      dh = details.delta.dy;
     } else if (edge == Alignment.topCenter) {
-      if (_accumulatedDeltaY < -threshold && card.rowSpan < 2) {
-        newRowSpan = 2;
-        _accumulatedDeltaY = 0.0;
-      } else if (_accumulatedDeltaY > threshold && card.rowSpan > 1) {
-        newRowSpan = 1;
-        _accumulatedDeltaY = 0.0;
-      }
+      dh = -details.delta.dy;
     }
 
-    if (newColSpan != card.colSpan || newRowSpan != card.rowSpan) {
-      widget.onUpdateCard(card.copyWith(colSpan: newColSpan, rowSpan: newRowSpan));
-    }
+    setState(() {
+      _liveDragDeltaW += dw;
+      _liveDragDeltaH += dh;
+    });
   }
 
-  void _handleDragEnd(DragEndDetails details, Alignment _) {
-    _accumulatedDeltaX = 0.0;
-    _accumulatedDeltaY = 0.0;
+  void _handleResizeDragEnd(
+    DragEndDetails details,
+    CardConfig card,
+    double unitColWidth,
+    double unitRowHeight,
+    double gap,
+  ) {
+    final double initialWidth = (card.colSpan * unitColWidth) + ((card.colSpan - 1) * gap);
+    final double initialHeight = (card.rowSpan * unitRowHeight) + ((card.rowSpan - 1) * gap);
+
+    final double finalW = initialWidth + _liveDragDeltaW;
+    final double finalH = initialHeight + _liveDragDeltaH;
+
+    // Snap to closest column (1 to 4)
+    final int targetColSpan = ((finalW + gap) / (unitColWidth + gap)).round().clamp(1, 4);
+    // Snap to closest row (1 to 4)
+    final int targetRowSpan = ((finalH + gap) / (unitRowHeight + gap)).round().clamp(1, 4);
+
+    setState(() {
+      _resizingMetricId = null;
+      _liveDragDeltaW = 0.0;
+      _liveDragDeltaH = 0.0;
+    });
+
+    if (targetColSpan != card.colSpan || targetRowSpan != card.rowSpan) {
+      widget.onUpdateCard(card.copyWith(colSpan: targetColSpan, rowSpan: targetRowSpan));
+    }
   }
 
   /// Opens font size customization for a given card config.
@@ -272,15 +272,14 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
       },
       child: LayoutBuilder(
         builder: (BuildContext context, BoxConstraints constraints) {
-          final double gap = widget.isEditMode ? 24.0 : 12.0;
-          final double horizontalPadding = widget.isEditMode ? 20.0 : 16.0;
-          final double verticalPadding = widget.isEditMode ? 18.0 : 12.0;
+          final double gap = widget.isEditMode ? 14.0 : 12.0;
+          final double horizontalPadding = widget.isEditMode ? 16.0 : 16.0;
+          final double verticalPadding = widget.isEditMode ? 16.0 : 12.0;
 
+          // 4-column unit grid calculation
           final double availableWidth = constraints.maxWidth - (horizontalPadding * 2);
-          final double halfWidth = (availableWidth - gap) / 2.0;
-          final double fullWidth = availableWidth;
-          const double standardHeight = 108.0;
-          final double tallHeight = (standardHeight * 2) + gap;
+          final double unitColWidth = (availableWidth - (3 * gap)) / 4.0;
+          const double unitRowHeight = 52.0;
 
           // Compute reflow preview order if a card is currently being dragged over another slot
           List<CardConfig> displayCards = widget.cards;
@@ -306,8 +305,19 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                 final TelemetryMetric? metric = TelemetryMetric.findById(card.metricId);
                 if (metric == null) return const SizedBox.shrink();
 
-                final double cardW = card.colSpan == 2 ? fullWidth : halfWidth;
-                final double cardH = card.rowSpan == 2 ? tallHeight : standardHeight;
+                // Compute base dimensions according to colSpan (1..4) and rowSpan (1..4)
+                final double baseW = (card.colSpan * unitColWidth) + ((card.colSpan - 1) * gap);
+                final double baseH = (card.rowSpan * unitRowHeight) + ((card.rowSpan - 1) * gap);
+
+                // If currently resizing this card, live stretch follows user's finger!
+                final bool isResizingThis = (_resizingMetricId == card.metricId);
+                final double cardW = isResizingThis
+                    ? (baseW + _liveDragDeltaW).clamp(unitColWidth, availableWidth)
+                    : baseW;
+                final double cardH = isResizingThis
+                    ? (baseH + _liveDragDeltaH).clamp(unitRowHeight, (4 * unitRowHeight) + (3 * gap))
+                    : baseH;
+
                 final bool isActive = widget.isEditMode && (currentActiveMetricId == card.metricId);
 
                 final String displayValue = metric.valueFormatter(widget.telemetryData, widget.isConnected);
@@ -330,19 +340,29 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                     }
                   },
                   onEditFontSizes: () => openFontSizeDialogForCard(card, metric),
+                  onCornerDragStart: (DragStartDetails details, Alignment corner) {
+                    _handleCornerDragStart(details, corner, card);
+                  },
                   onCornerDragUpdate: (DragUpdateDetails details, Alignment corner) {
-                    _handleCornerDragUpdate(details, corner, card);
+                    _handleCornerDragUpdate(details, corner, card, unitColWidth, unitRowHeight, gap);
                   },
-                  onCornerDragEnd: _handleDragEnd,
+                  onCornerDragEnd: (DragEndDetails details, Alignment corner) {
+                    _handleResizeDragEnd(details, card, unitColWidth, unitRowHeight, gap);
+                  },
+                  onEdgeDragStart: (DragStartDetails details, Alignment edge) {
+                    _handleEdgeDragStart(details, edge, card);
+                  },
                   onEdgeDragUpdate: (DragUpdateDetails details, Alignment edge) {
-                    _handleEdgeDragUpdate(details, edge, card);
+                    _handleEdgeDragUpdate(details, edge, card, unitColWidth, unitRowHeight, gap);
                   },
-                  onEdgeDragEnd: _handleDragEnd,
+                  onEdgeDragEnd: (DragEndDetails details, Alignment edge) {
+                    _handleResizeDragEnd(details, card, unitColWidth, unitRowHeight, gap);
+                  },
                 );
 
                 if (!widget.isEditMode) {
                   return AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
+                    duration: const Duration(milliseconds: 320),
                     curve: Curves.easeInOutCubic,
                     width: cardW,
                     height: cardH,
@@ -355,13 +375,12 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                   animation: Listenable.merge([widget.shakeAnimation, _entryAnimationController]),
                   builder: (BuildContext cardContext, Widget? child) {
                     final double sign = (index % 2 == 0) ? 1.0 : -1.0;
-                    // Jiggle rotation and translation only fully kicks in as entry transition completes
                     final double jiggleProgress = _entryAnimationController.value;
                     final double rotationAngle = sign * 0.020 * widget.shakeAnimation.value * jiggleProgress;
                     final double translationY = (index % 3 == 0 ? 1.0 : -1.0) * 1.2 * widget.shakeAnimation.value * jiggleProgress;
 
-                    // Smooth entry downscale transition: 1.0 down to edit mode scale (0.88 normal, 0.95 active)
-                    final double targetScale = isActive ? 0.95 : 0.88;
+                    // Smooth entry downscale transition: 1.0 down to edit mode scale (0.90 normal, 0.96 active)
+                    final double targetScale = isActive ? 0.96 : 0.90;
                     final double currentScale = 1.0 - ((1.0 - targetScale) * _entryScaleAnimation.value);
 
                     return Transform.scale(
@@ -408,7 +427,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                   },
                   builder: (BuildContext dropContext, List<String?> candidateData, List<dynamic> rejectedData) {
                     return AnimatedContainer(
-                      duration: const Duration(milliseconds: 250),
+                      duration: const Duration(milliseconds: 280),
                       curve: Curves.easeInOutCubic,
                       width: cardW,
                       height: cardH,
@@ -434,7 +453,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                         feedback: TweenAnimationBuilder<double>(
                           duration: const Duration(milliseconds: 180),
                           curve: Curves.easeOutCubic,
-                          tween: Tween<double>(begin: 0.88, end: 1.05),
+                          tween: Tween<double>(begin: 0.90, end: 1.05),
                           builder: (BuildContext context, double animatedScale, Widget? child) {
                             return Material(
                               color: Colors.transparent,
@@ -453,14 +472,14 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                           },
                         ),
                         childWhenDragging: AnimatedOpacity(
-                          duration: const Duration(milliseconds: 180),
-                          opacity: 0.45,
+                          duration: const Duration(milliseconds: 200),
+                          opacity: 0.35,
                           child: Container(
                             decoration: BoxDecoration(
                               color: GitHubTheme.canvasInset,
                               borderRadius: BorderRadius.circular(12.0),
                               border: Border.all(
-                                color: const Color(0xFFCCFF00).withValues(alpha: 0.6),
+                                color: const Color(0xFFCCFF00).withValues(alpha: 0.7),
                                 width: 2.0,
                               ),
                             ),

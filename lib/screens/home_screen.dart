@@ -157,29 +157,35 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     if (shouldDiscard == true && mounted) {
-      _layoutService.cancelEditMode();
       _shakeController.stop();
-      _shakeController.reset();
+      _layoutService.cancelEditMode();
       setState(() {
         _isEditMode = false;
         _activeMetricId = null;
       });
-      ToastService.show(
-        context,
-        'Layout changes discarded.',
-        type: ToastType.info,
-      );
+      // Allow the reverse scale animation in DashboardFlowLayout to play smoothly
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      _shakeController.reset();
+      if (mounted) {
+        ToastService.show(
+          context,
+          'Layout changes discarded.',
+          type: ToastType.info,
+        );
+      }
     }
   }
 
   Future<void> _handleSaveEditMode() async {
-    await _layoutService.saveEditMode();
     _shakeController.stop();
-    _shakeController.reset();
+    await _layoutService.saveEditMode();
     setState(() {
       _isEditMode = false;
       _activeMetricId = null;
     });
+    // Allow the reverse scale animation in DashboardFlowLayout to play smoothly
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    _shakeController.reset();
     if (mounted) {
       ToastService.show(
         context,

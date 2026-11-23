@@ -35,7 +35,7 @@ const pocketLockProtectionDefinition = {
       shrink: true
     },
     mockup_card: {
-      image_path: "assets/delete.png",
+      image_path: "assets/lock_overlay.png",
       shrink: true
     }
   },
@@ -50,9 +50,15 @@ const pocketLockProtectionDefinition = {
           content: "When riding a motorcycle with the logger running in a pocket or jacket, body fabric touches frequently stop logging, toggle settings, or disconnect Bluetooth. The Translucent Pocket Lock solves this completely by placing a full-screen touch interceptor over the viewport while maintaining full visibility of live engine metrics."
         },
         {
-          block_type: "paragraph",
-          heading_title: "Random PIN Challenge & Keypad",
-          content: "On lock activation, the app generates a randomized 4-digit code (e.g. 'Press 7 2 9 4 to open'). The rider enters this code using large, glove-friendly circular keypad buttons (0-9, CLR, Backspace). If incorrect, an error flash resets the input; matching digits dismiss the overlay immediately."
+          block_type: "table",
+          heading_title: "Keypad & Verification Security",
+          columns: ["Property", "Specification", "Behavior"],
+          rows: [
+            ["PIN Generation", "Random 4 Digits", "Regenerated on every activation; displayed prominently in quotes"],
+            ["Keypad Layout", "3x4 Telephone Pad", "Large glove-friendly circular buttons with tactile sound/vibration"],
+            ["Wrong Input", "Shake & Red Flash", "Keypad shakes horizontally with red glow and clears entry on mismatch"],
+            ["Pass-through", "Active Telemetry", "Underlying stream metrics update continuously at 50-100Hz"]
+          ]
         }
       ]
     }

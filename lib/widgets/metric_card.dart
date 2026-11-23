@@ -50,11 +50,17 @@ class MetricCard extends StatelessWidget {
   /// Optional callback invoked when the on-card Edit button is tapped.
   final VoidCallback? onEditFontSizes;
 
+  /// Optional callback for pan start on corner resize handles.
+  final void Function(DragStartDetails details, Alignment corner)? onCornerDragStart;
+
   /// Optional callback for dragging corner resize handles.
   final void Function(DragUpdateDetails details, Alignment corner)? onCornerDragUpdate;
 
   /// Optional callback when a corner resize handle drag completes.
   final void Function(DragEndDetails details, Alignment corner)? onCornerDragEnd;
+
+  /// Optional callback for pan start on edge resize handles.
+  final void Function(DragStartDetails details, Alignment edge)? onEdgeDragStart;
 
   /// Optional callback for dragging edge resize handles.
   final void Function(DragUpdateDetails details, Alignment edge)? onEdgeDragUpdate;
@@ -78,8 +84,10 @@ class MetricCard extends StatelessWidget {
     this.onTap,
     this.onLongPress,
     this.onEditFontSizes,
+    this.onCornerDragStart,
     this.onCornerDragUpdate,
     this.onCornerDragEnd,
+    this.onEdgeDragStart,
     this.onEdgeDragUpdate,
     this.onEdgeDragEnd,
   });
@@ -278,6 +286,9 @@ class MetricCard extends StatelessWidget {
       right: right,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (DragStartDetails details) {
+          onEdgeDragStart?.call(details, alignment);
+        },
         onPanUpdate: (DragUpdateDetails details) {
           onEdgeDragUpdate?.call(details, alignment);
         },
@@ -333,6 +344,9 @@ class MetricCard extends StatelessWidget {
       right: right,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
+        onPanStart: (DragStartDetails details) {
+          onCornerDragStart?.call(details, alignment);
+        },
         onPanUpdate: (DragUpdateDetails details) {
           onCornerDragUpdate?.call(details, alignment);
         },
