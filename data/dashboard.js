@@ -46,10 +46,11 @@ const dashboardDefinition = {
   icon_name: "dashboard",
   header_container: {
     title: "ECU Logger",
-    description: "High-performance standalone CAN bus and OBD-II telemetry logging engine with Option 3 Minimalist Dashboard, dynamic 4-digit PIN translucent lock screen, and real-time Volumetric Efficiency (VE%) matrix accumulator.",
+    description: "High-performance standalone CAN bus and OBD-II telemetry logging engine with 2-Column Minimalist Cockpit, fluid Edit Mode animations, dynamic 4-digit PIN translucent lock screen, and real-time Volumetric Efficiency (VE%) matrix accumulator.",
     badge_list: [
       { icon_name: "palette", badge_label: "GitHub Primer Theme" },
       { icon_name: "speed", badge_label: "50-100Hz CAN Passive Sniffing" },
+      { icon_name: "tune", badge_label: "Fluid Edit Mode & Resizing" },
       { icon_name: "lock", badge_label: "Pocket Touch Overlay" },
       { icon_name: "verified", badge_label: "MPL-2.0 License" }
     ],
@@ -58,7 +59,7 @@ const dashboardDefinition = {
       shrink: true
     },
     mockup_card: {
-      image_path: "assets/scale.png",
+      image_path: "assets/dashboard.png",
       shrink: true
     }
   },
@@ -70,32 +71,32 @@ const dashboardDefinition = {
         {
           heading_title: "Core Architectural Pillars",
           block_type: "cards_container",
-          description: "Essential architectural capabilities engineered for robust background logging on two wheels.",
+          description: "Essential architectural capabilities engineered for robust background logging and live visualization.",
           layout_type: "three_cards",
           cards: [
             {
-              title: "Option 3 Minimalist Dashboard",
-              description: "6 high-contrast digital cards (RPM, TPS, MAP kPa, VE%, ECT °C, VVA) and collapsible bottom Monospace Log Drawer.",
+              title: "Minimalist Dashboard & Edit Mode",
+              description: "2-column flow cockpit cards (RPM, TPS, MAP, VE%, ECT, VVA) with iOS-style downscale, jiggle, live reflow, and fluid resizing.",
               label: "UI & Monitoring",
               link: "data/navigation-items/minimalist-dashboard.js",
-              image_path: "",
-              shrink: false
+              image_path: "assets/edit_mode.png",
+              shrink: true
             },
             {
               title: "Translucent Pocket Lock",
-              description: "Dynamic 4-digit challenge PIN overlay that prevents accidental pocket touches without interrupting continuous logging.",
+              description: "Dynamic 4-digit challenge PIN overlay preventing accidental touches while keeping metrics 100% visible and actively logging.",
               label: "Safety & Integrity",
               link: "data/navigation-items/pocket-lock-protection.js",
-              image_path: "",
-              shrink: false
+              image_path: "assets/lock_overlay.png",
+              shrink: true
             },
             {
               title: "Dual-Stream File Engine",
               description: "Streams raw_can.log, telemetry.csv, and remap_matrix.json with automated buffered flushing on app pause or disconnect.",
               label: "Storage & Tuning",
               link: "data/navigation-items/telemetry-and-matrix.js",
-              image_path: "",
-              shrink: false
+              image_path: "assets/console_log.png",
+              shrink: true
             }
           ]
         },
