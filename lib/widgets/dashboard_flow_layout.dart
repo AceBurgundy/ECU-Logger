@@ -15,7 +15,28 @@ import '../services/telemetry_engine.dart';
 import 'metric_card.dart';
 import 'font_size_dialog.dart';
 
-/// Computed layout output for a 4-column telemetry card grid.
+/// Maximum supported grid column span across responsive breakpoints.
+const int maxDashboardGridColumns = 8;
+
+/// Maximum supported grid row span per card.
+const int maxDashboardGridRows = 4;
+
+/// Resolves adaptive grid column count for a given logical width in dp.
+/// - Phone portrait (< 600dp): 4 columns (2 cards per row at 2-span)
+/// - Tablet portrait / Phone landscape (600dp..900dp): 6 columns (3 cards per row)
+/// - Large tablet / Wide landscape (> 900dp): 8 columns (4 cards per row)
+int computeDashboardColumnsForWidth(double width) {
+  if (width > 900.0) return 8;
+  if (width >= 600.0) return 6;
+  return 4;
+}
+
+/// Computes base unit row height proportional to [unitColWidth].
+double computeDashboardUnitRowHeight(double unitColWidth) {
+  return (unitColWidth * 0.58).clamp(52.0, 72.0);
+}
+
+/// Computed layout output for an adaptive multi-column telemetry card grid.
 class DashboardGridLayout {
   /// Mapping of metric ID to its pixel [Rect] inside the grid canvas.
   final Map<String, Rect> rects;
@@ -31,7 +52,7 @@ class DashboardGridLayout {
 }
 
 /// Computes deterministic order-preserving 2D grid coordinates for cards
-/// on a 4-column grid where each card spans 1..4 columns and 1..4 rows.
+/// on a [totalColumns]-column grid where each card spans 1..[totalColumns] columns and 1..4 rows.
 DashboardGridLayout computeDashboardGridLayout({
   required List<CardConfig> cards,
   required double unitColWidth,
@@ -77,7 +98,7 @@ DashboardGridLayout computeDashboardGridLayout({
 
   for (final CardConfig card in cards) {
     final int cSpan = card.colSpan.clamp(1, totalColumns);
-    final int rSpan = card.rowSpan.clamp(1, 4);
+    final int rSpan = card.rowSpan.clamp(1, maxDashboardGridRows);
 
     int placedRow = cursorRow;
     int placedCol = cursorCol;
@@ -122,9 +143,9 @@ DashboardGridLayout computeDashboardGridLayout({
   return DashboardGridLayout(rects: rects, totalHeight: totalHeight);
 }
 
-/// Responsive 4-column reflow layout for telemetry cards.
+/// Responsive adaptive-column reflow layout for telemetry cards.
 /// Features:
-/// - Default 2x2 card span on install on a 4-column grid (resizable up to 4x4).
+/// - Adaptive 4 / 6 / 8 column grids (<600dp, 600..900dp, >900dp) with 2-span card defaults.
 /// - Smooth cubic downscale entry into Edit Mode (without idle jiggle) and smooth scale-back exit.
 /// - Drag-only jiggle animation that begins on card hold-drag and stops cleanly on drop.
 /// - Physical slide-away reflow via [AnimatedPositioned] with stable keys when hovering over/between cards.
@@ -381,7 +402,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     final double minVW = unitColWidth * s;
     final double maxVW = availableWidth * s;
     final double minVH = unitRowHeight * s;
-    final double maxVH = ((4 * unitRowHeight) + (3 * gap)) * s;
+    final double maxVH = ((maxDashboardGridRows * unitRowHeight) + ((maxDashboardGridRows - 1) * gap)) * s;
 
     final bool movesLeft = handle == Alignment.topLeft ||
         handle == Alignment.centerLeft ||
@@ -433,6 +454,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     double unitColWidth,
     double unitRowHeight,
     double gap,
+    int totalColumns,
   ) {
     final Rect? finalRect = _liveResizeRect;
     setState(() {
@@ -445,8 +467,10 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
 
     if (finalRect == null) return;
 
-    final int targetColSpan = ((finalRect.width + gap) / (unitColWidth + gap)).round().clamp(1, 4);
-    final int targetRowSpan = ((finalRect.height + gap) / (unitRowHeight + gap)).round().clamp(1, 4);
+    final int targetColSpan =
+        ((finalRect.width + gap) / (unitColWidth + gap)).round().clamp(1, totalColumns);
+    final int targetRowSpan =
+        ((finalRect.height + gap) / (unitRowHeight + gap)).round().clamp(1, maxDashboardGridRows);
 
     if (targetColSpan != card.colSpan || targetRowSpan != card.rowSpan) {
       widget.onUpdateCard(card.copyWith(colSpan: targetColSpan, rowSpan: targetRowSpan));
@@ -470,6 +494,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     double unitColWidth,
     double unitRowHeight,
     double gap,
+    int totalColumns,
   ) {
     final String? draggedId = _draggedMetricId;
     if (draggedId == null) return;
@@ -482,10 +507,10 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     if (oldIdx == -1) return;
 
     final CardConfig draggedCard = widget.cards[oldIdx];
-    final double cardW = (draggedCard.colSpan.clamp(1, 4) * unitColWidth) +
-        ((draggedCard.colSpan.clamp(1, 4) - 1) * gap);
-    final double cardH = (draggedCard.rowSpan.clamp(1, 4) * unitRowHeight) +
-        ((draggedCard.rowSpan.clamp(1, 4) - 1) * gap);
+    final int effectiveColSpan = draggedCard.colSpan.clamp(1, totalColumns);
+    final int effectiveRowSpan = draggedCard.rowSpan.clamp(1, maxDashboardGridRows);
+    final double cardW = (effectiveColSpan * unitColWidth) + ((effectiveColSpan - 1) * gap);
+    final double cardH = (effectiveRowSpan * unitRowHeight) + ((effectiveRowSpan - 1) * gap);
 
     final Offset cardTopLeft = pointerLocal - _dragGrabOffset;
     final Offset cardCenter = cardTopLeft + Offset(cardW * 0.5, cardH * 0.5);
@@ -502,6 +527,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
         unitColWidth: unitColWidth,
         unitRowHeight: unitRowHeight,
         gap: gap,
+        totalColumns: totalColumns,
       );
       candidateSlots.add(candidateLayout.rects[draggedId]!);
     }
@@ -599,10 +625,11 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
           const double horizontalPadding = 16.0;
           const double verticalPadding = 14.0;
 
-          // 4-column unit grid calculation
+          // Adaptive responsive grid calculation (4 / 6 / 8 columns)
+          final int totalColumns = computeDashboardColumnsForWidth(constraints.maxWidth);
           final double availableWidth = math.max(100.0, constraints.maxWidth - (horizontalPadding * 2));
-          final double unitColWidth = (availableWidth - (3 * gap)) / 4.0;
-          const double unitRowHeight = 52.0;
+          final double unitColWidth = (availableWidth - ((totalColumns - 1) * gap)) / totalColumns;
+          final double unitRowHeight = computeDashboardUnitRowHeight(unitColWidth);
 
           // Compute reflow preview order when dragging a card
           List<CardConfig> displayCards = widget.cards;
@@ -621,6 +648,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
             unitColWidth: unitColWidth,
             unitRowHeight: unitRowHeight,
             gap: gap,
+            totalColumns: totalColumns,
           );
 
           final double minCanvasHeight = math.max(0.0, constraints.maxHeight - verticalPadding - 90.0);
@@ -758,6 +786,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                           unitColWidth,
                           unitRowHeight,
                           gap,
+                          totalColumns,
                         );
                       },
                       onDragEnd: (DraggableDetails details) {
@@ -903,6 +932,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
                     unitColWidth,
                     unitRowHeight,
                     gap,
+                    totalColumns,
                   ),
                   onPanCancel: _handleResizeCancel,
                   child: const SizedBox.expand(),

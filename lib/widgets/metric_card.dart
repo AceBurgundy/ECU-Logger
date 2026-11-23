@@ -4,6 +4,7 @@
 // TPS = Throttle Position Sensor
 // MAP = Manifold Absolute Pressure
 // ECT = Engine Coolant Temperature
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 
@@ -153,60 +154,11 @@ class MetricCard extends StatelessWidget {
         final bool isCompactHeight = boxConstraints.hasBoundedHeight && boxConstraints.maxHeight < 68.0;
         final double padH = isCompactHeight ? (isEditMode ? 8.0 : 6.0) : (isEditMode ? 12.0 : 8.0);
         final double padV = isCompactHeight ? 4.0 : (isEditMode ? 10.0 : 6.0);
+        final double maxHeaderHeight = boxConstraints.hasBoundedHeight
+            ? math.max(14.0, (boxConstraints.maxHeight - (padV * 2)) * 0.44)
+            : double.infinity;
 
-        final Widget headerRow = Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Flexible(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Flexible(
-                    child: Text(
-                      label.toUpperCase(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: GitHubTheme.fontGoogleSans,
-                        fontSize: titleFontSize ?? 10.5,
-                        fontWeight: FontWeight.w600,
-                        color: GitHubTheme.fgMuted,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                  ),
-                  if (unit.isNotEmpty) ...[
-                    const SizedBox(width: 5.0),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isCompactHeight ? 4.0 : 5.0,
-                        vertical: isCompactHeight ? 0.5 : 1.5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: GitHubTheme.canvasInset,
-                        borderRadius: BorderRadius.circular(5.0),
-                        border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
-                      ),
-                      child: Text(
-                        unit,
-                        style: TextStyle(
-                          fontFamily: GitHubTheme.fontGoogleSansCode,
-                          fontSize: unitFontSize ?? 9.5,
-                          fontWeight: FontWeight.w500,
-                          color: GitHubTheme.fgSubtle,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        );
-
-        final Widget compactHeaderRow = Row(
+        final Widget headerRowContent = Row(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -222,9 +174,12 @@ class MetricCard extends StatelessWidget {
               ),
             ),
             if (unit.isNotEmpty) ...[
-              const SizedBox(width: 4.0),
+              SizedBox(width: isCompactHeight ? 4.0 : 5.0),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 0.5),
+                padding: EdgeInsets.symmetric(
+                  horizontal: isCompactHeight ? 4.0 : 5.0,
+                  vertical: isCompactHeight ? 0.5 : 1.5,
+                ),
                 decoration: BoxDecoration(
                   color: GitHubTheme.canvasInset,
                   borderRadius: BorderRadius.circular(5.0),
@@ -258,14 +213,15 @@ class MetricCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              // Header Row: Title and Value-Type Pill tightly beside each other (overflow-safe at 1x1)
-              isCompactHeight
-                  ? FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: compactHeaderRow,
-                    )
-                  : headerRow,
+              // Header Row: Title and Value-Type Pill tightly beside each other (overflow-safe up to 80pt at any span)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: maxHeaderHeight),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: headerRowContent,
+                ),
+              ),
 
               // Small gap between title row and value readout (P3.T1 requirement)
               SizedBox(height: isCompactHeight ? 1.0 : 3.0),

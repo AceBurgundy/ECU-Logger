@@ -6,7 +6,7 @@ const architectureAndPipelineDefinition = {
   icon_name: "account_tree",
   header_container: {
     title: "System Architecture & Telemetry Pipeline",
-    description: "From passive ELM327 CAN broadcast sniffing and 4-column grid packing to real-time Volumetric Efficiency calculation and multi-format disk serialization.",
+    description: "From passive ELM327 CAN broadcast sniffing and responsive 4/6/8-column grid packing to real-time Volumetric Efficiency calculation and multi-format disk serialization.",
     badge_list: [
       { icon_name: "layers", badge_label: "Decoupled Modules" },
       { icon_name: "sync", badge_label: "Reactive Streams" },
@@ -25,7 +25,7 @@ const architectureAndPipelineDefinition = {
         {
           block_type: "paragraph",
           heading_title: "Data Flow Architecture",
-          paragraph_text: "ECU Logger is structured into cleanly separated runtime layers: BleService (BLE peripheral discovery and UART streaming), Elm327Protocol (AT command loops and raw CAN/PID frame parsing), TelemetryEngine (Speed-Density VE math and VVA hysteresis), DashboardLayoutService (JSON layout persistence and frozen previews), FileLoggerService (buffered CSV/LOG/JSON sinks), and the DashboardFlowLayout 4-column animated grid."
+          paragraph_text: "ECU Logger is structured into cleanly separated runtime layers: BleService (BLE peripheral discovery and UART streaming), Elm327Protocol (AT command loops and raw CAN/PID frame parsing), TelemetryEngine (Speed-Density VE math and VVA hysteresis), DashboardLayoutService (deduplicated JSON layout persistence and frozen previews), FileLoggerService (buffered CSV/LOG/JSON sinks), and the DashboardFlowLayout adaptive 4/6/8-column grid."
         },
         {
           block_type: "code_block",
@@ -36,10 +36,10 @@ const architectureAndPipelineDefinition = {
         },
         {
           block_type: "code_block",
-          heading_title: "Order-Preserving 4-Column 2D Packer",
+          heading_title: "Adaptive Responsive 2D Grid Packer",
           header_label: "Dart • computeDashboardGridLayout",
           language_identifier: "dart",
-          code_content: "final DashboardGridLayout layout = computeDashboardGridLayout(\n  cards: displayCards,\n  unitColWidth: (availableWidth - (3 * gap)) / 4.0,\n  unitRowHeight: 52.0,\n  gap: isEditMode ? 14.0 : 12.0,\n);"
+          code_content: "final int totalColumns = computeDashboardColumnsForWidth(constraints.maxWidth); // 4, 6, or 8\nfinal double unitColWidth = (availableWidth - ((totalColumns - 1) * gap)) / totalColumns;\nfinal DashboardGridLayout layout = computeDashboardGridLayout(\n  cards: displayCards,\n  unitColWidth: unitColWidth,\n  unitRowHeight: computeDashboardUnitRowHeight(unitColWidth),\n  gap: isEditMode ? 14.0 : 12.0,\n  totalColumns: totalColumns,\n);"
         }
       ]
     }

@@ -6,12 +6,12 @@ const minimalistDashboardDefinition = {
   icon_name: "speed",
   header_container: {
     title: "Minimalist Cockpit & Fluid Edit Mode",
-    description: "High-contrast 4-column digital cockpit adhering to GitHub Primer dark aesthetics, featuring 2x2 default cards, pixel-tracked 4x4 resizing, physical slide-away reflow, and drag-only jiggle.",
+    description: "Adaptive 4 / 6 / 8-column digital cockpit adhering to GitHub Primer dark aesthetics, featuring 2-span defaults, pixel-tracked resizing up to active max columns, 80pt fonts, physical slide reflow, and miniature saved previews.",
     badge_list: [
-      { icon_name: "grid_view", badge_label: "4-Col Grid (2x2 Default)" },
-      { icon_name: "open_with", badge_label: "Up to 4x4 Resize" },
+      { icon_name: "grid_view", badge_label: "4 / 6 / 8-Col Grid (2-Span)" },
+      { icon_name: "open_with", badge_label: "Up to 8x4 Resize" },
       { icon_name: "animation", badge_label: "Physical Slide Reflow" },
-      { icon_name: "text_fields", badge_label: "Per-Card Font Sizing" }
+      { icon_name: "text_fields", badge_label: "Up to 80.0 pt Fonts" }
     ],
     banner_image: {
       image_path: "assets/edit_mode_selected.png",
@@ -25,8 +25,8 @@ const minimalistDashboardDefinition = {
       section_blocks: [
         {
           block_type: "paragraph",
-          heading_title: "Cockpit Metrics & Default 2x2 Grid",
-          paragraph_text: "On fresh install, ECU Logger arranges six primary telemetry channels (RPM, TPS, MAP, VE%, ECT, and VVA) on a 4-column layout grid where every card consumes 2 columns by 2 rows. In View Mode, cards render flush against the dark GitHub canvas without noisy borders; disconnected channels display type-matched zero placeholders (00, 0%, 0.0, OFF) instead of dashes."
+          heading_title: "Responsive Multi-Column Grid & Default 2-Span Cards",
+          paragraph_text: "ECU Logger dynamically adapts grid density by viewport width: phone portrait (<600dp) renders 4 columns (2 cards/row), tablet portrait or phone landscape (600dp-900dp) renders 6 columns (3 cards/row), and large tablets or wide landscapes (>900dp) render 8 columns (4 cards/row). All six default telemetry cards (RPM, TPS, MAP, VE%, ECT, and VVA) start at 2 columns by 2 rows with scaled row heights, rendering flush in View Mode with type-matched zero placeholders (00, 0%, 0.0, OFF)."
         },
         {
           block_type: "table",
@@ -59,8 +59,13 @@ const minimalistDashboardDefinition = {
         },
         {
           block_type: "paragraph",
-          heading_title: "Pixel-Tracking Edge & Corner Resizing (Up to 4x4)",
-          paragraph_text: "Tapping any card selects it with a Bright Neon Yellow (0xFFCCFF00) border and reveals 8 interactive handles (4 corners and 4 edges) backed by unclipped 28px overlay touch targets. Dragging any edge or corner locks scroll competition, accounts for scale center-offset mathematically, follows the user's hand pixel-for-pixel in real time, and snaps smoothly to the nearest column (1..4) and row (1..4) upon release."
+          heading_title: "Pixel-Tracking Edge & Corner Resizing (Up to Max Columns x 4 Rows)",
+          paragraph_text: "Tapping any card selects it with a Bright Neon Yellow (0xFFCCFF00) border and reveals 8 interactive handles (4 corners and 4 edges) backed by unclipped 28px overlay touch targets. Dragging any edge or corner locks scroll competition, accounts for scale center-offset mathematically, follows the user's hand pixel-for-pixel in real time, and snaps smoothly to the nearest column (1..4, 1..6, or 1..8 depending on screen width) and row (1..4) upon release."
+        },
+        {
+          block_type: "paragraph",
+          heading_title: "80.0 pt Per-Card Typography & Deduplicated Saved Layouts",
+          paragraph_text: "The contextual Font Size Dialog supports up to 80.0 pt across Title Label, Numeric Value, and Unit Badge Pill with overflow-safe scaling even on 1x1 cards. Pressing Save checks card metric IDs, column/row spans, and font sizes against the protected Factory Cockpit baseline and existing presets—saving only genuinely unique layouts and displaying real miniature card previews inside the Saved Cockpit Layouts carousel."
         },
         {
           block_type: "cards_container",
@@ -78,15 +83,15 @@ const minimalistDashboardDefinition = {
             },
             {
               title: "8-Point Pixel Resize",
-              description: "Unclipped edge & corner overlay zones track finger position 1:1 and snap cleanly from 1x1 up to 4x4.",
+              description: "Unclipped edge & corner overlay zones track finger position 1:1 and snap cleanly across 4, 6, or 8 columns.",
               label: "Resizing",
               link: "",
               image_path: "assets/edit_mode_selected.png",
               shrink: true
             },
             {
-              title: "Contextual Typography Editor",
-              description: "Selecting a card illuminates the Neon Yellow format-size action button between Cancel and Save.",
+              title: "80pt Typography Editor",
+              description: "Selecting a card illuminates the Neon Yellow format-size action button with sliders up to 80.0 pt for all 3 texts.",
               label: "Typography",
               link: "",
               image_path: "assets/font_dialog.png",

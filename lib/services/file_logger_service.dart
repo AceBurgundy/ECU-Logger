@@ -232,7 +232,7 @@ class FileLoggerService {
   Future<void> saveRemapMatrix(RemapMatrix matrix) async {
     if (_matrixFile != null) {
       try {
-        await _matrixFile?.writeAsString(matrix.toFormattedJson());
+        await _matrixFile?.writeAsString(matrix.toFormattedJson(), flush: true);
       } catch (exception) {
         // Ignore background write exceptions
       }
@@ -247,6 +247,7 @@ class FileLoggerService {
     if (matrix != null) {
       await saveRemapMatrix(matrix);
     }
+    _matrixFile = null;
 
     try {
       await _rawCanSink?.flush();

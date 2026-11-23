@@ -55,6 +55,11 @@ class FontSizeDialog extends StatefulWidget {
 }
 
 class _FontSizeDialogState extends State<FontSizeDialog> {
+  static const double _titleMin = 8.0;
+  static const double _valueMin = 18.0;
+  static const double _unitMin = 7.0;
+  static const double _maxFontSize = 80.0;
+
   late double _titleSize;
   late double _valueSize;
   late double _unitSize;
@@ -62,9 +67,9 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
   @override
   void initState() {
     super.initState();
-    _titleSize = widget.currentTitleSize;
-    _valueSize = widget.currentValueSize;
-    _unitSize = widget.currentUnitSize;
+    _titleSize = widget.currentTitleSize.clamp(_titleMin, _maxFontSize);
+    _valueSize = widget.currentValueSize.clamp(_valueMin, _maxFontSize);
+    _unitSize = widget.currentUnitSize.clamp(_unitMin, _maxFontSize);
   }
 
   @override
@@ -114,8 +119,8 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
             _buildSliderRow(
               label: 'Title Label',
               value: _titleSize,
-              min: 8.0,
-              max: 18.0,
+              min: _titleMin,
+              max: _maxFontSize,
               onChanged: (double val) => setState(() => _titleSize = val),
             ),
             const Divider(color: GitHubTheme.borderMuted, height: 24.0),
@@ -124,8 +129,8 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
             _buildSliderRow(
               label: 'Numeric Value',
               value: _valueSize,
-              min: 18.0,
-              max: 48.0,
+              min: _valueMin,
+              max: _maxFontSize,
               onChanged: (double val) => setState(() => _valueSize = val),
             ),
             const Divider(color: GitHubTheme.borderMuted, height: 24.0),
@@ -134,14 +139,15 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
             _buildSliderRow(
               label: 'Unit Badge Pill',
               value: _unitSize,
-              min: 7.0,
-              max: 16.0,
+              min: _unitMin,
+              max: _maxFontSize,
               onChanged: (double val) => setState(() => _unitSize = val),
             ),
 
             const SizedBox(height: 16.0),
-            // Live Preview Box
+            // Live Preview Box (overflow-safe up to 80.0 pt across all 3 texts)
             Container(
+              width: double.infinity,
               padding: const EdgeInsets.all(12.0),
               decoration: BoxDecoration(
                 color: GitHubTheme.canvasSubtle,
@@ -149,55 +155,63 @@ class _FontSizeDialogState extends State<FontSizeDialog> {
                 border: Border.all(color: const Color(0xFFCCFF00), width: 1.5),
               ),
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          widget.cardTitle.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: GitHubTheme.fontGoogleSans,
-                            fontSize: _titleSize,
-                            fontWeight: FontWeight.w600,
-                            color: GitHubTheme.fgMuted,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 56.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.cardTitle.toUpperCase(),
+                            maxLines: 1,
+                            style: TextStyle(
+                              fontFamily: GitHubTheme.fontGoogleSans,
+                              fontSize: _titleSize,
+                              fontWeight: FontWeight.w600,
+                              color: GitHubTheme.fgMuted,
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 4.0),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.5),
-                        decoration: BoxDecoration(
-                          color: GitHubTheme.canvasInset,
-                          borderRadius: BorderRadius.circular(4.0),
-                          border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
-                        ),
-                        child: Text(
-                          'UNIT',
-                          style: TextStyle(
-                            fontFamily: GitHubTheme.fontGoogleSansCode,
-                            fontSize: _unitSize,
-                            fontWeight: FontWeight.w500,
-                            color: GitHubTheme.fgSubtle,
+                          const SizedBox(width: 4.0),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 1.5),
+                            decoration: BoxDecoration(
+                              color: GitHubTheme.canvasInset,
+                              borderRadius: BorderRadius.circular(4.0),
+                              border: Border.all(color: GitHubTheme.borderMuted, width: 0.8),
+                            ),
+                            child: Text(
+                              'UNIT',
+                              style: TextStyle(
+                                fontFamily: GitHubTheme.fontGoogleSansCode,
+                                fontSize: _unitSize,
+                                fontWeight: FontWeight.w500,
+                                color: GitHubTheme.fgSubtle,
+                              ),
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 4.0),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      '8888',
-                      style: TextStyle(
-                        fontFamily: GitHubTheme.fontGoogleSansCode,
-                        fontSize: _valueSize,
-                        fontWeight: FontWeight.w700,
-                        color: GitHubTheme.fgDefault,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 92.0),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '8888',
+                        style: TextStyle(
+                          fontFamily: GitHubTheme.fontGoogleSansCode,
+                          fontSize: _valueSize,
+                          fontWeight: FontWeight.w700,
+                          color: GitHubTheme.fgDefault,
+                        ),
                       ),
                     ),
                   ),

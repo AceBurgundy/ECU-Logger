@@ -6,12 +6,12 @@ const dashboardDefinition = {
   icon_name: "dashboard",
   header_container: {
     title: "ECU Logger",
-    description: "High-frequency CAN bus and OBD-II telemetry logger for motorcycle ECU tuning and real-time volumetric efficiency analysis. Built with Flutter, featuring customizable 4-column cockpit layouts and resilient background data acquisition.",
+    description: "High-frequency CAN bus and OBD-II telemetry logger for motorcycle ECU tuning and real-time volumetric efficiency analysis. Built with Flutter, featuring adaptive 4/6/8-column cockpit layouts and resilient background data acquisition.",
     badge_list: [
       { icon_name: "palette", badge_label: "GitHub Primer Theme" },
       { icon_name: "speed", badge_label: "50-100Hz CAN Sniffing" },
-      { icon_name: "grid_view", badge_label: "4-Col / 2x2 Default Grid" },
-      { icon_name: "open_with", badge_label: "Pixel-Tracked 4x4 Resize" },
+      { icon_name: "grid_view", badge_label: "4 / 6 / 8-Col Responsive Grid" },
+      { icon_name: "open_with", badge_label: "Pixel-Tracked Resize & 80pt Fonts" },
       { icon_name: "lock", badge_label: "Pocket Touch Overlay" }
     ],
     banner_image: {
@@ -31,8 +31,8 @@ const dashboardDefinition = {
           layout_type: "three_cards",
           cards: [
             {
-              title: "4-Column Fluid Cockpit & Edit Mode",
-              description: "Defaults to 2x2 cards on a 4-column grid, resizable pixel-for-pixel up to 4x4 via 8 corner/edge handles with drag-only jiggle and smooth physical slide-away reflow.",
+              title: "Adaptive 4/6/8-Col Cockpit & Edit Mode",
+              description: "Scales cleanly across phones, landscape views, and tablets (4, 6, or 8 columns) with pixel-tracked 8-point resizing, 80pt max fonts, drag-only jiggle, and deduplicated miniature layout previews.",
               label: "UI & Customization",
               link: "data/navigation-items/minimalist-dashboard.js",
               image_path: "assets/edit_mode.png",

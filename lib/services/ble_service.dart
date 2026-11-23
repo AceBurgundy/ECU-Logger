@@ -335,7 +335,7 @@ class BleService {
           _connectedDevice!.connectionState.listen((BluetoothConnectionState connectionState) {
         if (connectionState == BluetoothConnectionState.disconnected &&
             _state == BleConnectionState.connected) {
-          _dataStreamController.add('[SYSTEM] Hardware adapter disconnected.');
+          _dataStreamController.add('[SYSTEM] Hardware adapter disconnected.\r\n');
           disconnect();
         }
       });
@@ -402,7 +402,7 @@ class BleService {
       // Start hardware polling loop for continuous live telemetry
       _startHardwarePollingLoop();
     } catch (exception) {
-      _dataStreamController.add('[SYSTEM] Connection error: $exception');
+      _dataStreamController.add('[SYSTEM] Connection error: $exception\r\n');
       _updateState(BleConnectionState.error);
       disconnect();
     }
@@ -426,7 +426,8 @@ class BleService {
 
     if (_writeCharacteristic != null) {
       _commandResponseBuffer.clear();
-      _pendingCommandCompleter = Completer<String>();
+      final Completer<String> commandCompleter = Completer<String>();
+      _pendingCommandCompleter = commandCompleter;
 
       try {
         final List<int> bytes = utf8.encode('$command\r');
@@ -436,13 +437,22 @@ class BleService {
           await _writeCharacteristic!.write(bytes, withoutResponse: false);
         }
 
-        final String response = await _pendingCommandCompleter!.future.timeout(
+        final String response = await commandCompleter.future.timeout(
           timeout,
-          onTimeout: () => _commandResponseBuffer.toString(),
+          onTimeout: () {
+            if (_pendingCommandCompleter == commandCompleter) {
+              _pendingCommandCompleter = null;
+            }
+            return _commandResponseBuffer.toString();
+          },
         );
         return response;
       } catch (exception) {
         return '';
+      } finally {
+        if (_pendingCommandCompleter == commandCompleter) {
+          _pendingCommandCompleter = null;
+        }
       }
     } else {
       _dataStreamController.add('>$command\rOK\r');
@@ -451,7 +461,7 @@ class BleService {
   }
 
   Future<void> _runElm327InitSequence() async {
-    _dataStreamController.add('[SYSTEM] Starting ELM327 protocol handshake...');
+    _dataStreamController.add('[SYSTEM] Starting ELM327 protocol handshake...\r\n');
 
     // 1. Warm start and reset to clear any sticky hardware registers
     await sendCommand('ATWS', timeout: const Duration(seconds: 2));
@@ -482,7 +492,7 @@ class BleService {
     await sendCommand('ATSH7DF', timeout: const Duration(milliseconds: 600));
     String pingResponse = await sendCommand('0100', timeout: const Duration(seconds: 2));
     if (pingResponse.contains('CAN ERROR') || pingResponse.contains('NO DATA') || !pingResponse.contains('4100')) {
-      _dataStreamController.add('[SYSTEM] 0x7DF functional address unacknowledged. Switching to physical 0x7E0...');
+      _dataStreamController.add('[SYSTEM] 0x7DF functional address unacknowledged. Switching to physical 0x7E0...\r\n');
       await sendCommand('ATSH7E0', timeout: const Duration(milliseconds: 800));
       pingResponse = await sendCommand('0100', timeout: const Duration(seconds: 2));
     }
@@ -493,7 +503,7 @@ class BleService {
       TelemetryEngine.instance.registerSupportedPid(pid);
     }
 
-    _dataStreamController.add('[SYSTEM] ELM327 handshake complete. Protocol locked.');
+    _dataStreamController.add('[SYSTEM] ELM327 handshake complete. Protocol locked.\r\n');
   }
 
   void _startHardwarePollingLoop() {
@@ -637,6 +647,11 @@ class BleService {
     _isHardwarePollingActive = false;
     _mockTimer?.cancel();
     _mockTimer = null;
+    if (_pendingCommandCompleter != null && !_pendingCommandCompleter!.isCompleted) {
+      _pendingCommandCompleter!.complete(_commandResponseBuffer.toString());
+    }
+    _pendingCommandCompleter = null;
+    _commandResponseBuffer.clear();
     _deviceStateSubscription?.cancel();
     _deviceStateSubscription = null;
 

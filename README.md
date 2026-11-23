@@ -2,10 +2,10 @@
 
 🚀 **High-frequency CAN bus and OBD-II telemetry logger for motorcycle ECU tuning and real-time volumetric efficiency analysis. Built with Flutter, featuring customizable cockpit layouts and resilient background data acquisition.**
 
-Built specifically for motorcycle telemetry acquisition and ECU tuning on Android, `ECU Logger` delivers crash-resilient 50–100Hz background logging to your road runs! Whether you are tuning Yamaha low-end fueling, diagnosing VVA camshaft transitions, or recording high-speed CAN streams from a NEXAS NexLink BLE 5.0 adapter, `ECU Logger` provides a high-contrast GitHub Primer cockpit with fluid 4-column card customization and continuous disk logging right out of the box. ⚡
+Built specifically for motorcycle telemetry acquisition and ECU tuning on Android, `ECU Logger` delivers crash-resilient 50–100Hz background logging to your road runs! Whether you are tuning Yamaha low-end fueling, diagnosing VVA camshaft transitions, or recording high-speed CAN streams from a NEXAS NexLink BLE 5.0 adapter, `ECU Logger` provides a high-contrast GitHub Primer cockpit with responsive multi-column card customization and continuous disk logging right out of the box. ⚡
 
 **Live Documentation**: [https://aceburgundy.github.io/ECU-Logger/](https://aceburgundy.github.io/ECU-Logger/)  
-**Direct APK Download (`v1.0.1`)**: [Download ecu-logger-v1.0.1.apk](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk)
+**Direct APK Download (`v1.0.2`)**: [Download ecu-logger-v1.0.2.apk](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.2/ecu-logger-v1.0.2.apk)
 
 ---
 
@@ -42,12 +42,16 @@ flutter pub get
 
 ## 🚀 Core Features
 
-* 📱 **Adaptive 4-Column Cockpit (2x2 Default):** On app install, each telemetry card (Engine Speed, Throttle TPS %, Manifold MAP kPa, Volumetric Efficiency VE %, Coolant Temp ECT °C, and VVA Cam Status) defaults to **2 columns × 2 rows** on a 4-column layout grid, rendered flush in GitHub Primer dark aesthetics (`#0D1117`).
-* 🎨 **Interactive Fluid Edit Mode:**
+* 📱 **Responsive Multi-Column Cockpit (4 / 6 / 8 Columns, 2-Span Default):** Dynamically scales across screen widths while keeping cards at **2-column × 2-row** defaults rendered flush in GitHub Primer dark aesthetics (`#0D1117`):
+  * **Phone Portrait (`<600dp`):** 4 grid columns (2 cards per row).
+  * **Tablet Portrait / Phone Landscape (`600dp–900dp`):** 6 grid columns (3 cards per row).
+  * **Large Tablet / Wide Landscape (`>900dp`):** 8 grid columns (4 cards per row).
+* 🎨 **Interactive Fluid Edit Mode & Saved Cockpit Carousel:**
   * **Quiet Smooth Entry & Exit Scale:** Long-pressing enters Edit Mode with a smooth cubic downscale transition without distracting idle jiggle. Selecting **Check (Save)** or **Cancel (Discard)** smoothly animates all cards back to `1.0x` scale.
   * **Drag-Only Jiggle & Physical Slide-Away Reflow:** Holding and dragging a card activates the jiggle animation exclusively for the active drag, while neighboring cards smoothly and physically slide out of the way (`AnimatedPositioned`) to open drop space when hovering over or between cards. Dropping immediately stops the jiggle.
-  * **Pixel-Accurate 8-Point Edge & Corner Resizing:** Selecting a card highlights it in Bright Neon Yellow (`0xFFCCFF00`) with 4 corner and 4 edge drag handles. Dragging any edge or corner tracks your hand pixel-for-pixel in real time and snaps cleanly to the nearest column (`1..4`) and row (`1..4`) on release (up to `4x4` max).
-  * **Contextual Typography Editor:** Tapping the glowing Neon Yellow font-size button between Cancel and Save customizes Title, Value, and Unit font sizes per card.
+  * **Pixel-Accurate 8-Point Edge & Corner Resizing:** Selecting a card highlights it in Bright Neon Yellow (`0xFFCCFF00`) with 4 corner and 4 edge drag handles. Dragging any edge or corner tracks your hand pixel-for-pixel in real time and snaps cleanly up to the active max columns (`4`, `6`, or `8`) and up to `4` rows.
+  * **Contextual Typography Editor (Up to 80.0 pt):** Tapping the glowing Neon Yellow font-size button between Cancel and Save customizes Title, Numeric Value, and Unit pill font sizes up to **80.0 pt** per card with overflow-safe scaling.
+  * **Minimalist Saved Layouts Carousel & Deduplication:** Displays miniature real cockpit cards reflecting exact grid positions, spans, and typography—never generic skeletons. Pressing Save deduplicates layouts against the non-deletable `Factory Cockpit` baseline and existing saved presets so identical layouts are never duplicated.
 * 🔒 **Translucent Pocket Lock Screen:** Full-page translucent modal with a randomized 4-digit PIN challenge (e.g. `Press "7 2 9 4" to open`) and glove-friendly numeric keypad. Prevents accidental pocket touches while preserving 100% live visibility and background logging.
 * 📶 **Color-Coded Bluetooth FAB:** Dynamic floating action button reflecting connection state: Grey (Disconnected), Orange (Scanning / Connecting), Green (Connected & Logging), Red (Error).
 * 📁 **Dual-Stream File Storage:** Simultaneously writes raw incoming CAN hex frames (`raw_can_*.log`), structured CSV metrics (`telemetry_*.csv`), and the 16x11 tuning accumulator matrix (`remap_matrix_*.json`).
@@ -61,7 +65,7 @@ flutter pub get
 
 ### 1️⃣ Installation & Launch ⚙️
 
-Install the latest release APK directly from [GitHub Releases](https://github.com/AceBurgundy/ECU-Logger/releases/latest) ([Direct APK Download](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk)) or build from source:
+Install the latest release APK directly from [GitHub Releases](https://github.com/AceBurgundy/ECU-Logger/releases/latest) ([Direct APK Download](https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.2/ecu-logger-v1.0.2.apk)) or build from source:
 
 ```bash
 flutter run --release

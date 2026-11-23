@@ -38,7 +38,7 @@ window.DOCUMENTATION_ITEMS = window.DOCUMENTATION_ITEMS || {};
 /** @type {FooterDefinition} */
 const footerDefinition = {
   brand_name: "ECU Logger • AceBurgundy",
-  brand_description: "High-frequency CAN bus and OBD-II telemetry logger for motorcycle ECU tuning and real-time volumetric efficiency analysis. Built with Flutter, featuring customizable 4-column cockpit layouts and resilient background data acquisition.",
+  brand_description: "High-frequency CAN bus and OBD-II telemetry logger for motorcycle ECU tuning and real-time volumetric efficiency analysis. Built with Flutter, featuring responsive 4/6/8-column cockpit layouts and resilient background data acquisition.",
   social_links: [
     {
       icon_name: "code",
@@ -62,13 +62,13 @@ const footerDefinition = {
       links: [
         { label: "Project Overview", url: "https://github.com/AceBurgundy/ECU-Logger#readme" },
         { label: "Requirements & Setup", url: "https://github.com/AceBurgundy/ECU-Logger#requirements--installation" },
-        { label: "Latest APK Release (v1.0.1)", url: "https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.1/ecu-logger-v1.0.1.apk" }
+        { label: "Latest APK Release (v1.0.2)", url: "https://github.com/AceBurgundy/ECU-Logger/releases/download/v1.0.2/ecu-logger-v1.0.2.apk" }
       ]
     },
     {
       column_title: "Core Modules",
       links: [
-        { label: "4-Column Cockpit Layout", url: "https://github.com/AceBurgundy/ECU-Logger/blob/master/lib/widgets/dashboard_flow_layout.dart" },
+        { label: "Adaptive Cockpit Layout", url: "https://github.com/AceBurgundy/ECU-Logger/blob/master/lib/widgets/dashboard_flow_layout.dart" },
         { label: "Pocket Lock Overlay", url: "https://github.com/AceBurgundy/ECU-Logger/blob/master/lib/widgets/lock_overlay.dart" },
         { label: "Monospace Log Drawer", url: "https://github.com/AceBurgundy/ECU-Logger/blob/master/lib/widgets/log_drawer.dart" }
       ]

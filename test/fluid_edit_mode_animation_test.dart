@@ -77,7 +77,7 @@ void main() {
         'col_span': 9,
         'row_span': 7,
       });
-      expect(clampedJson.colSpan, equals(4));
+      expect(clampedJson.colSpan, equals(8));
       expect(clampedJson.rowSpan, equals(4));
     });
 
@@ -656,25 +656,44 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
     });
 
-    testWidgets('1x1 MetricCard with max font sizes renders with zero RenderFlex overflow',
+    testWidgets('1x1 and 2x2 MetricCards with 80pt max font sizes render with zero RenderFlex overflow',
         (WidgetTester tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: Center(
-              child: SizedBox(
-                width: 84.0,
-                height: 52.0,
-                child: MetricCard(
-                  label: 'MANIFOLD PRESSURE',
-                  value: '101.3',
-                  unit: 'kPa',
-                  isEditMode: true,
-                  isActive: true,
-                  titleFontSize: 18.0,
-                  valueFontSize: 48.0,
-                  unitFontSize: 16.0,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 84.0,
+                    height: 52.0,
+                    child: MetricCard(
+                      label: 'MANIFOLD PRESSURE',
+                      value: '101.3',
+                      unit: 'kPa',
+                      isEditMode: true,
+                      isActive: true,
+                      titleFontSize: 80.0,
+                      valueFontSize: 80.0,
+                      unitFontSize: 80.0,
+                    ),
+                  ),
+                  SizedBox(height: 12.0),
+                  SizedBox(
+                    width: 184.0,
+                    height: 116.0,
+                    child: MetricCard(
+                      label: 'MANIFOLD PRESSURE',
+                      value: '101.3',
+                      unit: 'kPa',
+                      isEditMode: false,
+                      titleFontSize: 80.0,
+                      valueFontSize: 80.0,
+                      unitFontSize: 80.0,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

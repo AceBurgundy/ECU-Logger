@@ -66,9 +66,7 @@ class DashboardLayoutService extends ChangeNotifier {
   /// Initializes the service by reading saved designs from application storage.
   Future<void> initialize() async {
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
-      if (_savedDesigns.isEmpty) {
-        _savedDesigns.add(_activeDesign);
-      }
+      _ensureDefaultAndDeduplicate();
       notifyListeners();
       return;
     }
@@ -79,6 +77,7 @@ class DashboardLayoutService extends ChangeNotifier {
       final File activeFile = File('${baseDir.path}/$_activeLayoutFileName');
       if (await activeFile.exists()) {
         final String raw = await activeFile.readAsString();
+        // dynamic required here: JSON decode returns untyped structure
         final dynamic decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
           _activeDesign = DashboardDesign.fromJson(decoded);
@@ -89,6 +88,7 @@ class DashboardLayoutService extends ChangeNotifier {
       final File savedFile = File('${baseDir.path}/$_savedLayoutsFileName');
       if (await savedFile.exists()) {
         final String raw = await savedFile.readAsString();
+        // dynamic required here: JSON decode returns untyped structure
         final dynamic decoded = jsonDecode(raw);
         if (decoded is List<dynamic>) {
           _savedDesigns.clear();
@@ -100,17 +100,87 @@ class DashboardLayoutService extends ChangeNotifier {
         }
       }
 
-      // Ensure at least the initial active design is tracked in saved designs
-      if (_savedDesigns.isEmpty) {
-        _savedDesigns.add(_activeDesign);
+      final bool changed = _ensureDefaultAndDeduplicate();
+      if (changed) {
         await _persistSavedDesigns();
+        await _persistActiveLayout();
       }
     } catch (e) {
       debugPrint('[DashboardLayoutService] Initialization fallback: $e');
-      if (_savedDesigns.isEmpty) {
-        _savedDesigns.add(_activeDesign);
+      _ensureDefaultAndDeduplicate();
+    }
+    notifyListeners();
+  }
+
+  /// Ensures Factory Cockpit exists at index 0 and removes duplicate saved layouts.
+  bool _ensureDefaultAndDeduplicate() {
+    bool modified = false;
+    final DashboardDesign baselineDefault = DashboardDesign.createDefault();
+
+    final int defaultIndex = _savedDesigns.indexWhere((DashboardDesign d) => d.isDefault);
+    if (defaultIndex == -1) {
+      _savedDesigns.insert(0, baselineDefault);
+      modified = true;
+    } else if (defaultIndex != 0) {
+      final DashboardDesign foundDefault = _savedDesigns.removeAt(defaultIndex);
+      _savedDesigns.insert(0, foundDefault);
+      modified = true;
+    }
+
+    final List<DashboardDesign> uniqueDesigns = <DashboardDesign>[];
+    for (final DashboardDesign candidate in _savedDesigns) {
+      final bool duplicateExists = uniqueDesigns.any(
+        (DashboardDesign kept) => kept.matchesLayout(candidate.cards),
+      );
+      if (!duplicateExists) {
+        uniqueDesigns.add(candidate);
+      } else {
+        modified = true;
       }
     }
+
+    if (uniqueDesigns.length != _savedDesigns.length) {
+      _savedDesigns
+        ..clear()
+        ..addAll(uniqueDesigns);
+    }
+
+    final DashboardDesign? activeMatch = _findMatchingDesign(_activeDesign.cards);
+    if (activeMatch != null && activeMatch.id != _activeDesign.id) {
+      _activeDesign = activeMatch;
+      modified = true;
+    }
+
+    return modified;
+  }
+
+  /// Returns the existing saved design whose layout matches [cards], or null if unique.
+  DashboardDesign? _findMatchingDesign(List<CardConfig> cards) {
+    for (final DashboardDesign design in _savedDesigns) {
+      if (design.matchesLayout(cards)) {
+        return design;
+      }
+    }
+    final DashboardDesign factoryDefault = DashboardDesign.createDefault();
+    if (factoryDefault.matchesLayout(cards)) {
+      return _savedDesigns.firstWhere(
+        (DashboardDesign d) => d.isDefault,
+        orElse: () => factoryDefault,
+      );
+    }
+    return null;
+  }
+
+  /// Resets layout service state to factory baseline for deterministic tests.
+  @visibleForTesting
+  void resetForTesting() {
+    _activeDesign = DashboardDesign.createDefault();
+    _savedDesigns
+      ..clear()
+      ..add(_activeDesign);
+    _editDraftCards = null;
+    _isFreezePreview = false;
+    _previewSnapshot = null;
     notifyListeners();
   }
 
@@ -142,26 +212,38 @@ class DashboardLayoutService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Persists both the previous design and newly saved design as specified in P3.T7.
-  Future<void> saveEditMode() async {
-    if (_editDraftCards == null) return;
+  /// Persists the edited layout only when it differs from the factory default and all existing saved layouts.
+  ///
+  /// Returns true if a new unique cockpit layout was created, or false if the draft
+  /// matched an existing saved design (including Factory Cockpit) without duplicating.
+  Future<bool> saveEditMode() async {
+    if (_editDraftCards == null) return false;
 
-    final DashboardDesign previousDesign = _activeDesign;
-    final int newDesignNumber = _savedDesigns.length + 1;
-    final DashboardDesign newDesign = DashboardDesign(
-      id: 'design_${DateTime.now().millisecondsSinceEpoch}',
-      name: 'Cockpit Layout $newDesignNumber',
-      createdAt: DateTime.now(),
-      cards: _editDraftCards!,
-    );
+    _ensureDefaultAndDeduplicate();
+    final List<CardConfig> draftSnapshot =
+        _editDraftCards!.map((CardConfig c) => c.copyWith()).toList();
 
-    // Ensure the previous design is preserved in saved designs
-    final bool previousAlreadyPresent = _savedDesigns.any((DashboardDesign d) => d.id == previousDesign.id);
-    if (!previousAlreadyPresent) {
-      _savedDesigns.add(previousDesign);
+    final DashboardDesign? existingMatch = _findMatchingDesign(draftSnapshot);
+    if (existingMatch != null) {
+      _activeDesign = existingMatch;
+      _editDraftCards = null;
+      await _persistActiveLayout();
+      notifyListeners();
+      return false;
     }
 
-    // Add newly saved design
+    int nextNumber = _savedDesigns.length + 1;
+    while (_savedDesigns.any((DashboardDesign d) => d.name == 'Cockpit Layout $nextNumber')) {
+      nextNumber++;
+    }
+
+    final DashboardDesign newDesign = DashboardDesign(
+      id: 'design_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Cockpit Layout $nextNumber',
+      createdAt: DateTime.now(),
+      cards: draftSnapshot,
+    );
+
     _savedDesigns.add(newDesign);
     _activeDesign = newDesign;
     _editDraftCards = null;
@@ -169,13 +251,23 @@ class DashboardLayoutService extends ChangeNotifier {
     await _persistActiveLayout();
     await _persistSavedDesigns();
     notifyListeners();
+    return true;
   }
 
-  /// Deletes a saved design by its [id].
+  /// Deletes a saved design by its [id]. The immutable Factory Cockpit default cannot be deleted.
   Future<void> deleteDesign(String id) async {
-    _savedDesigns.removeWhere((DashboardDesign d) => d.id == id);
+    if (id == DashboardDesign.defaultDesignId) {
+      return;
+    }
+    final int initialLength = _savedDesigns.length;
+    _savedDesigns.removeWhere((DashboardDesign d) => d.id == id && !d.isDefault);
+    if (_savedDesigns.length == initialLength) {
+      return;
+    }
     if (_activeDesign.id == id) {
-      _activeDesign = _savedDesigns.isNotEmpty ? _savedDesigns.first : DashboardDesign.createDefault();
+      _activeDesign = _savedDesigns.isNotEmpty
+          ? _savedDesigns.first
+          : DashboardDesign.createDefault();
       await _persistActiveLayout();
     }
     await _persistSavedDesigns();

@@ -214,16 +214,19 @@ void main() {
       expect(find.text('Edit Dashboard'), findsNothing);
     });
 
-    testWidgets('P3.T7 & P3.T8: Grid icon opens SavedLayoutsDialog with wireframe carousel',
+    testWidgets('P3.T7 & P3.T8: Grid icon opens SavedLayoutsDialog with miniature real layout carousel',
         (WidgetTester tester) async {
       final DashboardLayoutService layoutService = DashboardLayoutService.instance;
+      layoutService.resetForTesting();
       await layoutService.initialize();
 
-      // Seed 2 designs via edit mode cycles
+      // Seed a genuinely distinct custom layout (modifying rpm to 4x2)
       layoutService.startEditMode();
-      await layoutService.saveEditMode();
-      layoutService.startEditMode();
-      await layoutService.saveEditMode();
+      layoutService.updateCardConfig(
+        layoutService.displayCards.first.copyWith(colSpan: 4, rowSpan: 2),
+      );
+      final bool createdSecond = await layoutService.saveEditMode();
+      expect(createdSecond, isTrue);
 
       expect(layoutService.canShowGridIcon, isTrue);
 
@@ -252,10 +255,15 @@ void main() {
 
       expect(find.text('Saved Cockpit Layouts'), findsOneWidget);
       expect(find.byIcon(Icons.visibility_outlined), findsWidgets);
-      expect(find.byIcon(Icons.delete_outline_rounded), findsWidgets);
+      expect(find.byType(MetricCard), findsWidgets);
 
-      // Tap Preview button
-      await tester.tap(find.byIcon(Icons.visibility_outlined).first);
+      // Page 0 is Factory Cockpit (cannot be deleted) -> swipe to page 1 to verify Delete & Preview
+      await tester.drag(find.byType(PageView), const Offset(-420.0, 0.0));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.delete_outline_rounded), findsOneWidget);
+
+      // Tap Preview button on the active centered card
+      await tester.tap(find.byIcon(Icons.visibility_outlined).last);
       await tester.pump(const Duration(milliseconds: 300));
 
       expect(previewed, isNotNull);

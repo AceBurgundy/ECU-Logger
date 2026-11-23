@@ -4,14 +4,18 @@
 // TPS = Throttle Position Sensor
 // MAP = Manifold Absolute Pressure
 // ECT = Engine Coolant Temperature
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../models/dashboard_layout.dart';
+import '../models/telemetry_metric.dart';
 import '../services/dashboard_layout_service.dart';
+import '../services/telemetry_engine.dart';
 import 'dashboard_flow_layout.dart';
+import 'metric_card.dart';
 
-/// Modal dialog presenting a horizontal carousel of wireframe skeleton previews
-/// for all persisted cockpit designs, providing icon-only Delete and Preview actions.
+/// Modal dialog presenting a horizontal carousel of miniature cockpit layout previews
+/// for all persisted designs, providing Preview and (for custom designs) Delete actions.
 class SavedLayoutsDialog extends StatefulWidget {
   /// Callback invoked when the user selects a design to preview in frozen state.
   final ValueChanged<DashboardDesign> onPreviewSelected;
@@ -41,7 +45,7 @@ class SavedLayoutsDialog extends StatefulWidget {
 
 class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
   final DashboardLayoutService _layoutService = DashboardLayoutService.instance;
-  final PageController _pageController = PageController(viewportFraction: 0.85);
+  final PageController _pageController = PageController(viewportFraction: 0.88);
   int _currentPageIndex = 0;
 
   @override
@@ -53,6 +57,10 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
   @override
   Widget build(BuildContext context) {
     final List<DashboardDesign> designs = _layoutService.savedDesigns;
+    final Size screenSize = MediaQuery.of(context).size;
+    final int activeTotalColumns = computeDashboardColumnsForWidth(screenSize.width);
+    final double dialogWidth = math.min(420.0, screenSize.width * 0.88);
+    final double dialogHeight = math.min(370.0, screenSize.height * 0.62);
 
     return AlertDialog(
       backgroundColor: GitHubTheme.canvasDefault,
@@ -60,35 +68,22 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
         borderRadius: BorderRadius.circular(16.0),
         side: const BorderSide(color: GitHubTheme.borderDefault),
       ),
-      titlePadding: const EdgeInsets.fromLTRB(20.0, 18.0, 20.0, 10.0),
+      titlePadding: const EdgeInsets.fromLTRB(20.0, 16.0, 12.0, 6.0),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(6.0),
-                decoration: BoxDecoration(
-                  color: GitHubTheme.accent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: const Icon(
-                  Icons.grid_view_rounded,
-                  color: GitHubTheme.accent,
-                  size: 20.0,
-                ),
+          const Expanded(
+            child: Text(
+              'Saved Cockpit Layouts',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: GitHubTheme.fontCanela,
+                fontSize: 18.0,
+                fontWeight: FontWeight.w700,
+                color: GitHubTheme.fgDefault,
               ),
-              const SizedBox(width: 10.0),
-              const Text(
-                'Saved Cockpit Layouts',
-                style: TextStyle(
-                  fontFamily: GitHubTheme.fontCanela,
-                  fontSize: 18.0,
-                  fontWeight: FontWeight.w700,
-                  color: GitHubTheme.fgDefault,
-                ),
-              ),
-            ],
+            ),
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 20.0, color: GitHubTheme.fgMuted),
@@ -96,10 +91,10 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
           ),
         ],
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      contentPadding: const EdgeInsets.fromLTRB(10.0, 6.0, 10.0, 14.0),
       content: SizedBox(
-        width: 340.0,
-        height: 380.0,
+        width: dialogWidth,
+        height: dialogHeight,
         child: designs.isEmpty
             ? const Center(
                 child: Text(
@@ -117,9 +112,10 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                       itemBuilder: (BuildContext context, int index) {
                         final DashboardDesign design = designs[index];
                         final bool isActiveDesign = design.id == _layoutService.activeDesign.id;
+                        final bool canDelete = !design.isDefault;
 
                         return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 4.0),
+                          margin: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 4.0),
                           padding: const EdgeInsets.all(12.0),
                           decoration: BoxDecoration(
                             color: GitHubTheme.canvasSubtle,
@@ -128,23 +124,24 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                               color: isActiveDesign
                                   ? GitHubTheme.accent
                                   : GitHubTheme.borderDefault,
-                              width: isActiveDesign ? 1.8 : 1.0,
+                              width: isActiveDesign ? 1.5 : 1.0,
                             ),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Design Header
+                              // Minimal Header
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Expanded(
                                     child: Text(
                                       design.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         fontFamily: GitHubTheme.fontGoogleSans,
                                         fontSize: 14.0,
-                                        fontWeight: FontWeight.w700,
+                                        fontWeight: FontWeight.w600,
                                         color: GitHubTheme.fgDefault,
                                       ),
                                     ),
@@ -153,61 +150,71 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 2.0),
                                       decoration: BoxDecoration(
-                                        color: GitHubTheme.accent.withValues(alpha: 0.2),
+                                        color: GitHubTheme.accent.withValues(alpha: 0.16),
                                         borderRadius: BorderRadius.circular(4.0),
                                       ),
                                       child: const Text(
                                         'ACTIVE',
                                         style: TextStyle(
                                           fontSize: 9.0,
-                                          fontWeight: FontWeight.w800,
+                                          fontWeight: FontWeight.w700,
                                           color: GitHubTheme.accent,
                                         ),
                                       ),
                                     ),
                                 ],
                               ),
-                              const SizedBox(height: 8.0),
+                              const SizedBox(height: 10.0),
 
-                              // Wireframe Skeleton Representation
+                              // Real Miniature Cockpit Layout Representation
                               Expanded(
                                 child: Container(
+                                  width: double.infinity,
                                   padding: const EdgeInsets.all(8.0),
                                   decoration: BoxDecoration(
                                     color: GitHubTheme.canvasDefault,
                                     borderRadius: BorderRadius.circular(8.0),
-                                    border: Border.all(color: GitHubTheme.borderMuted),
                                   ),
-                                  child: _buildWireframeSkeleton(design),
+                                  child: _buildMiniatureLayoutPreview(
+                                    design: design,
+                                    referenceScreenWidth: screenSize.width,
+                                    totalColumns: activeTotalColumns,
+                                  ),
                                 ),
                               ),
-                              const SizedBox(height: 10.0),
+                              const SizedBox(height: 6.0),
 
-                              // Icon-only Action Buttons: Delete & Preview
+                              // Minimal Icon Actions: Preview (+ Delete only for non-default layouts)
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  // Delete Button
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline_rounded,
-                                      color: GitHubTheme.dangerFg,
-                                      size: 20.0,
-                                    ),
-                                    tooltip: 'Delete Design',
-                                    onPressed: () async {
-                                      await _layoutService.deleteDesign(design.id);
-                                      if (mounted && context.mounted) {
-                                        setState(() {});
-                                        if (_layoutService.savedDesigns.length < 2) {
-                                          Navigator.of(context).pop();
+                                  if (canDelete) ...[
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.delete_outline_rounded,
+                                        color: GitHubTheme.dangerFg,
+                                        size: 20.0,
+                                      ),
+                                      tooltip: 'Delete Design',
+                                      constraints: const BoxConstraints(),
+                                      padding: const EdgeInsets.all(6.0),
+                                      onPressed: () async {
+                                        await _layoutService.deleteDesign(design.id);
+                                        if (mounted && context.mounted) {
+                                          setState(() {
+                                            if (_currentPageIndex >= _layoutService.savedDesigns.length &&
+                                                _layoutService.savedDesigns.isNotEmpty) {
+                                              _currentPageIndex = _layoutService.savedDesigns.length - 1;
+                                            }
+                                          });
+                                          if (_layoutService.savedDesigns.length < 2) {
+                                            Navigator.of(context).pop();
+                                          }
                                         }
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(width: 8.0),
-
-                                  // Preview Button
+                                      },
+                                    ),
+                                    const SizedBox(width: 6.0),
+                                  ],
                                   IconButton(
                                     icon: const Icon(
                                       Icons.visibility_outlined,
@@ -215,6 +222,8 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                                       size: 20.0,
                                     ),
                                     tooltip: 'Preview Layout',
+                                    constraints: const BoxConstraints(),
+                                    padding: const EdgeInsets.all(6.0),
                                     onPressed: () {
                                       Navigator.of(context).pop();
                                       widget.onPreviewSelected(design);
@@ -233,7 +242,7 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                   const SizedBox(height: 8.0),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(designs.length, (int dotIndex) {
+                    children: List<Widget>.generate(designs.length, (int dotIndex) {
                       final bool isSelected = dotIndex == _currentPageIndex;
                       return AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -253,78 +262,84 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
     );
   }
 
-  /// Builds a miniature wireframe skeleton layout of cards inside the carousel item.
-  Widget _buildWireframeSkeleton(DashboardDesign design) {
-    return LayoutBuilder(
-      builder: (BuildContext context, BoxConstraints constraints) {
-        final double gridWidth = constraints.maxWidth;
-        const double gap = 4.0;
-        final double unitColWidth = (gridWidth - (3 * gap)) / 4.0;
-        const double unitRowHeight = 13.0;
-        final DashboardGridLayout layout = computeDashboardGridLayout(
-          cards: design.cards,
-          unitColWidth: unitColWidth,
-          unitRowHeight: unitRowHeight,
-          gap: gap,
-        );
+  /// Renders a proportionally accurate miniature cockpit preview using the actual
+  /// grid coordinates, spans, labels, units, and typography of [design].
+  Widget _buildMiniatureLayoutPreview({
+    required DashboardDesign design,
+    required double referenceScreenWidth,
+    required int totalColumns,
+  }) {
+    const double horizontalPadding = 16.0;
+    const double gap = 12.0;
+    final double refCanvasWidth = math.max(220.0, referenceScreenWidth - (horizontalPadding * 2));
+    final double unitColWidth = (refCanvasWidth - ((totalColumns - 1) * gap)) / totalColumns;
+    final double unitRowHeight = computeDashboardUnitRowHeight(unitColWidth);
 
-        return SingleChildScrollView(
-          physics: const NeverScrollableScrollPhysics(),
-          child: SizedBox(
-            width: gridWidth,
-            height: layout.totalHeight,
-            child: Stack(
-              children: design.cards.map((CardConfig card) {
-                final Rect? rect = layout.rects[card.metricId];
-                if (rect == null) return const SizedBox.shrink();
+    final DashboardGridLayout layout = computeDashboardGridLayout(
+      cards: design.cards,
+      unitColWidth: unitColWidth,
+      unitRowHeight: unitRowHeight,
+      gap: gap,
+      totalColumns: totalColumns,
+    );
 
-                return Positioned(
-                  left: rect.left,
-                  top: rect.top,
-                  width: rect.width,
-                  height: rect.height,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
-                    decoration: BoxDecoration(
-                      color: GitHubTheme.canvasInset,
-                      borderRadius: BorderRadius.circular(4.0),
-                      border: Border.all(
-                        color: GitHubTheme.borderDefault,
-                        width: 0.8,
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 4.0,
-                          height: 4.0,
-                          decoration: const BoxDecoration(
-                            color: GitHubTheme.accent,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 4.0),
-                        Expanded(
-                          child: Text(
-                            card.metricId.toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 7.5,
-                              fontWeight: FontWeight.w600,
-                              color: GitHubTheme.fgSubtle,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
+    if (layout.totalHeight <= 0.0 || design.cards.isEmpty) {
+      return const Center(
+        child: Text(
+          'Empty Layout',
+          style: TextStyle(fontSize: 11.0, color: GitHubTheme.fgMuted),
+        ),
+      );
+    }
+
+    final TelemetryData emptyTelemetry = TelemetryData();
+
+    return FittedBox(
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      child: SizedBox(
+        width: refCanvasWidth,
+        height: layout.totalHeight,
+        child: IgnorePointer(
+          child: Stack(
+            children: design.cards.map((CardConfig card) {
+              final Rect? rect = layout.rects[card.metricId];
+              final TelemetryMetric? metric = TelemetryMetric.findById(card.metricId);
+              if (rect == null || metric == null) {
+                return const SizedBox.shrink();
+              }
+
+              return Positioned(
+                left: rect.left,
+                top: rect.top,
+                width: rect.width,
+                height: rect.height,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: GitHubTheme.canvasSubtle,
+                    borderRadius: BorderRadius.circular(12.0),
+                    border: Border.all(
+                      color: GitHubTheme.borderMuted,
+                      width: 1.0,
                     ),
                   ),
-                );
-              }).toList(),
-            ),
+                  child: MetricCard(
+                    label: metric.shortLabel,
+                    value: metric.valueFormatter(emptyTelemetry, false),
+                    unit: metric.unit,
+                    accentColor: metric.accentColor,
+                    isHighlight: false,
+                    isEditMode: false,
+                    titleFontSize: card.titleFontSize,
+                    valueFontSize: card.valueFontSize,
+                    unitFontSize: card.unitFontSize,
+                  ),
+                ),
+              );
+            }).toList(),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }

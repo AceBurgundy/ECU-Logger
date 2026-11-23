@@ -191,7 +191,8 @@ class TelemetryEngine extends ChangeNotifier {
       } else if (state == BleConnectionState.disconnected) {
         FileLoggerService.instance.stopSession(remapMatrix);
         addLogLine('[SYSTEM] BLE Disconnected. Session auto-saved.');
-        // Clear card readouts and discovered metrics on disconnect
+        // Clear card readouts, partial line buffer, and discovered metrics on disconnect
+        _incomingBuffer = '';
         _currentData = TelemetryData();
         _supportedMetricIds.clear();
       }

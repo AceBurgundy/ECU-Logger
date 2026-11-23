@@ -25,14 +25,14 @@ const overviewAndTenetsDefinition = {
         {
           block_type: "paragraph",
           heading_title: "Mission & Philosophy",
-          paragraph_text: "ECU Logger is a dedicated mobile telemetry logger engineered to capture real-time broadcast CAN bus and OBD-II data from motorcycles via NEXAS NexLink BLE 5.0 and standard ELM327 adapters. It delivers zero-lag background logging, live Speed-Density Volumetric Efficiency calculation, and a customizable 4-column GitHub Primer cockpit."
+          paragraph_text: "ECU Logger is a dedicated mobile telemetry logger engineered to capture real-time broadcast CAN bus and OBD-II data from motorcycles via NEXAS NexLink BLE 5.0 and standard ELM327 adapters. It delivers zero-lag background logging, live Speed-Density Volumetric Efficiency calculation, and a responsive 4 / 6 / 8-column GitHub Primer cockpit."
         },
         {
           block_type: "table",
           heading_title: "Core Engineering Tenets",
           table_headers: ["Tenet", "Implementation", "Operational Impact"],
           table_rows: [
-            ["Adaptive 4-Column Cockpit", "Default 2x2 cards resizable 1..4 cols x 1..4 rows", "Renders clean 2-up default readouts on install while scaling freely up to full-width 4x4 priority gauges."],
+            ["Adaptive 4/6/8-Col Cockpit", "4 cols (<600dp), 6 cols (600-900dp), 8 cols (>900dp) with 2-span defaults", "Renders clean 2/3/4-up rows dynamically across phones, landscape views, and tablets up to max cols x 4 rows."],
             ["Zero-Lag Pixel Resizing", "Unclipped 28px border & corner hit zones", "Dragged corners and edges follow the rider's hand pixel-for-pixel and snap cleanly on release."],
             ["Drag-Only Jiggle & Reflow", "AnimatedPositioned 2D grid packer + drag-gated shake", "Edit Mode stays calm at rest; cards only jiggle while actively dragged as neighboring cards slide away smoothly."],
             ["Translucent Pocket Lock", "Dynamic 4-digit PIN challenge overlay", "Protects against accidental fabric touches in jacket pockets while keeping metrics 100% readable."],

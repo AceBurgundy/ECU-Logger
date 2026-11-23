@@ -180,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   Future<void> _handleSaveEditMode() async {
     _shakeController.stop();
-    await _layoutService.saveEditMode();
+    final bool createdNewLayout = await _layoutService.saveEditMode();
     setState(() {
       _isEditMode = false;
       _activeMetricId = null;
@@ -191,8 +191,10 @@ class _HomeScreenState extends State<HomeScreen>
     if (mounted) {
       ToastService.show(
         context,
-        'Cockpit layout saved successfully.',
-        type: ToastType.success,
+        createdNewLayout
+            ? 'Cockpit layout saved successfully.'
+            : 'Matched existing layout — no duplicate added.',
+        type: createdNewLayout ? ToastType.success : ToastType.info,
       );
     }
   }
@@ -200,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen>
   Future<void> _handleStopObdSession() async {
     _telemetry.addLogLine('[OBD] Disconnect button pressed. Stopping active session...');
     if (_fileLogger.isLogging) {
-      await _fileLogger.stopSession();
+      await _fileLogger.stopSession(_telemetry.remapMatrix);
     }
     await _ble.disconnect();
     if (mounted) {
@@ -447,87 +449,92 @@ class _HomeScreenState extends State<HomeScreen>
         ),
         body: Stack(
           children: [
-            Column(
-              children: [
-                // Frozen preview banner indicator
-                if (isFreezePreview)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 4.0),
-                    color: GitHubTheme.warningFg.withValues(alpha: 0.15),
-                    child: const Text(
-                      'FROZEN PREVIEW — Tap Set to apply permanently or Cancel to restore',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontFamily: GitHubTheme.fontGoogleSans,
-                        fontSize: 11.0,
-                        fontWeight: FontWeight.w700,
-                        color: GitHubTheme.warningFg,
+            SafeArea(
+              top: false,
+              bottom: false,
+              child: Column(
+                children: [
+                  // Frozen preview banner indicator
+                  if (isFreezePreview)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      color: GitHubTheme.warningFg.withValues(alpha: 0.15),
+                      child: const Text(
+                        'FROZEN PREVIEW — Tap Set to apply permanently or Cancel to restore',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontFamily: GitHubTheme.fontGoogleSans,
+                          fontSize: 11.0,
+                          fontWeight: FontWeight.w700,
+                          color: GitHubTheme.warningFg,
+                        ),
                       ),
+                    ),
+
+                  // Responsive 4 / 6 / 8 Column Reflow Layout Dashboard (default 2-span cards)
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: DashboardFlowLayout(
+                            cards: _layoutService.displayCards,
+                            telemetryData: data,
+                            isConnected: isConnected,
+                            isEditMode: _isEditMode && !isFreezePreview,
+                            shakeAnimation: _shakeAnimation,
+                            activeMetricId: _activeMetricId,
+                            onActiveMetricChanged: (String? id) {
+                              setState(() => _activeMetricId = id);
+                            },
+                            onDraggingChanged: (bool isDragging) {
+                              if (isDragging) {
+                                _shakeController.repeat(reverse: true);
+                              } else {
+                                _shakeController.stop();
+                                _shakeController.reset();
+                              }
+                            },
+                            onTriggerEditMode: () {
+                              if (!isFreezePreview) _enterEditMode();
+                            },
+                            onReorderCards: (int oldIndex, int newIndex) {
+                              final List<CardConfig> updated =
+                                  List<CardConfig>.from(_layoutService.displayCards);
+                              final CardConfig moved = updated.removeAt(oldIndex);
+                              updated.insert(newIndex, moved);
+                              _layoutService.updateDraftCards(updated);
+                            },
+                            onUpdateCard: (CardConfig updatedCard) {
+                              _layoutService.updateCardConfig(updatedCard);
+                            },
+                          ),
+                        ),
+
+                        // Floating bottom buttons positioned strictly ABOVE the console tab's top (never covering it)
+                        if (!_isScreenLocked)
+                          Positioned(
+                            right: 16.0,
+                            bottom: 16.0,
+                            child: _buildBottomActions(
+                              isConnected: isConnected,
+                              isFreezePreview: isFreezePreview,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
 
-                // Responsive 4-Column Reflow Layout Dashboard (default 2x2 cards)
-                Expanded(
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: DashboardFlowLayout(
-                          cards: _layoutService.displayCards,
-                          telemetryData: data,
-                          isConnected: isConnected,
-                          isEditMode: _isEditMode && !isFreezePreview,
-                          shakeAnimation: _shakeAnimation,
-                          activeMetricId: _activeMetricId,
-                          onActiveMetricChanged: (String? id) {
-                            setState(() => _activeMetricId = id);
-                          },
-                          onDraggingChanged: (bool isDragging) {
-                            if (isDragging) {
-                              _shakeController.repeat(reverse: true);
-                            } else {
-                              _shakeController.stop();
-                              _shakeController.reset();
-                            }
-                          },
-                          onTriggerEditMode: () {
-                            if (!isFreezePreview) _enterEditMode();
-                          },
-                          onReorderCards: (int oldIndex, int newIndex) {
-                            final List<CardConfig> updated = List<CardConfig>.from(_layoutService.displayCards);
-                            final CardConfig moved = updated.removeAt(oldIndex);
-                            updated.insert(newIndex, moved);
-                            _layoutService.updateDraftCards(updated);
-                          },
-                          onUpdateCard: (CardConfig updatedCard) {
-                            _layoutService.updateCardConfig(updatedCard);
-                          },
-                        ),
-                      ),
-
-                      // Floating bottom buttons positioned strictly ABOVE the console tab's top (never covering it)
-                      if (!_isScreenLocked)
-                        Positioned(
-                          right: 16.0,
-                          bottom: 16.0,
-                          child: _buildBottomActions(
-                            isConnected: isConnected,
-                            isFreezePreview: isFreezePreview,
-                          ),
-                        ),
-                    ],
+                  // Bottom Collapsible Monospace Log Drawer
+                  LogDrawer(
+                    logs: _telemetry.rollingLogs,
+                    onClear: () {
+                      _telemetry.clearLogs();
+                      ToastService.show(context, 'Console log cleared', type: ToastType.info);
+                    },
                   ),
-                ),
-
-                // Bottom Collapsible Monospace Log Drawer
-                LogDrawer(
-                  logs: _telemetry.rollingLogs,
-                  onClear: () {
-                    _telemetry.clearLogs();
-                    ToastService.show(context, 'Console log cleared', type: ToastType.info);
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
 
             // Translucent Lock Screen Overlay (pocket touch protection)
