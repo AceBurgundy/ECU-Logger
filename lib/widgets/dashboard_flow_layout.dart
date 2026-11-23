@@ -457,6 +457,7 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
     int totalColumns,
   ) {
     final Rect? finalRect = _liveResizeRect;
+    final Alignment? activeHandle = _resizeHandle;
     setState(() {
       _isTouchingResizeHandle = false;
       _resizingMetricId = null;
@@ -467,10 +468,27 @@ class DashboardFlowLayoutState extends State<DashboardFlowLayout>
 
     if (finalRect == null) return;
 
-    final int targetColSpan =
-        ((finalRect.width + gap) / (unitColWidth + gap)).round().clamp(1, totalColumns);
-    final int targetRowSpan =
-        ((finalRect.height + gap) / (unitRowHeight + gap)).round().clamp(1, maxDashboardGridRows);
+    final bool resizedHorizontally = activeHandle == null ||
+        activeHandle == Alignment.topLeft ||
+        activeHandle == Alignment.centerLeft ||
+        activeHandle == Alignment.bottomLeft ||
+        activeHandle == Alignment.topRight ||
+        activeHandle == Alignment.centerRight ||
+        activeHandle == Alignment.bottomRight;
+    final bool resizedVertically = activeHandle == null ||
+        activeHandle == Alignment.topLeft ||
+        activeHandle == Alignment.topCenter ||
+        activeHandle == Alignment.topRight ||
+        activeHandle == Alignment.bottomLeft ||
+        activeHandle == Alignment.bottomCenter ||
+        activeHandle == Alignment.bottomRight;
+
+    final int targetColSpan = resizedHorizontally
+        ? ((finalRect.width + gap) / (unitColWidth + gap)).round().clamp(1, totalColumns)
+        : card.colSpan;
+    final int targetRowSpan = resizedVertically
+        ? ((finalRect.height + gap) / (unitRowHeight + gap)).round().clamp(1, maxDashboardGridRows)
+        : card.rowSpan;
 
     if (targetColSpan != card.colSpan || targetRowSpan != card.rowSpan) {
       widget.onUpdateCard(card.copyWith(colSpan: targetColSpan, rowSpan: targetRowSpan));

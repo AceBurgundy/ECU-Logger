@@ -180,11 +180,15 @@ void main() {
       expect(service.savedDesigns.length, equals(2));
       expect(service.canShowGridIcon, isTrue);
 
-      // 5. Editing font size creates another unique saved layout
+      // 5. Editing font size creates another unique saved layout with strictly unique ID
       service.startEditMode();
       service.updateCardConfig(service.displayCards.first.copyWith(valueFontSize: 64.0));
       expect(await service.saveEditMode(), isTrue);
       expect(service.savedDesigns.length, equals(3));
+      expect(
+        service.savedDesigns.map((DashboardDesign d) => d.id).toSet().length,
+        equals(3),
+      );
 
       // 6. Editing back to exact Factory Cockpit switches active without duplicating
       service.startEditMode();
@@ -343,12 +347,218 @@ void main() {
       expect(contentAfterStop, equals(firstContent));
     });
 
-    test('TelemetryEngine line parser cleanly splits CRLF-terminated SYSTEM messages before CAN frames', () async {
+    test('TelemetryEngine cleanly splits CRLF-terminated BleService [SYSTEM] messages before CAN frames',
+        () async {
       final TelemetryEngine engine = TelemetryEngine.instance;
+      final BleService ble = BleService.instance;
+      addTearDown(() async {
+        ble.configureTransportForTesting(state: BleConnectionState.disconnected);
+      });
+
+      ble.configureTransportForTesting(state: BleConnectionState.connected);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
       engine.clearLogs();
-      engine.addLogLine('[SYSTEM] Starting ELM327 protocol handshake...');
-      expect(engine.rollingLogs.last, equals('[SYSTEM] Starting ELM327 protocol handshake...'));
-      expect(await BleService.instance.sendCommand('ATZ'), equals(''));
+
+      // Emit [SYSTEM]\r\n immediately followed by a 0x770 CAN frame (8000 raw => 2000 RPM, 0x33 => ~20% TPS)
+      ble.emitIncomingTextForTesting('[SYSTEM] Starting ELM327 protocol handshake...\r\n');
+      ble.emitIncomingTextForTesting('770 08 1F 40 33 00 00 00 00 00\r');
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(engine.rollingLogs, contains('[SYSTEM] Starting ELM327 protocol handshake...'));
+      expect(engine.rollingLogs, contains('770 08 1F 40 33 00 00 00 00 00'));
+      expect(engine.currentData.rpm, closeTo(2000.0, 0.1));
+      expect(engine.currentData.tps, closeTo(20.0, 0.5));
+    });
+
+    test('BleService.sendCommand clears _pendingCommandCompleter on timeout so next command succeeds',
+        () async {
+      final BleService ble = BleService.instance;
+      final List<String> writtenCommands = <String>[];
+      addTearDown(() {
+        ble.configureTransportForTesting(state: BleConnectionState.disconnected);
+      });
+
+      ble.configureTransportForTesting(
+        state: BleConnectionState.connected,
+        onWrite: (List<int> bytes) async {
+          final String cmd = utf8.decode(bytes);
+          writtenCommands.add(cmd);
+          if (cmd == '0100\r') {
+            // Partial chunk without '>' prompt -> forces timeout
+            ble.emitIncomingTextForTesting('SEARCHING...');
+          } else if (cmd == '010C\r') {
+            Future<void>.microtask(() {
+              ble.emitIncomingTextForTesting('41 0C 1F 40\r>');
+            });
+          }
+        },
+      );
+
+      final String timedOutResp = await ble.sendCommand(
+        '0100',
+        timeout: const Duration(milliseconds: 30),
+      );
+      expect(timedOutResp, equals('SEARCHING...'));
+      expect(ble.hasPendingCommandForTesting, isFalse);
+
+      // Late prompt arriving after timeout must be safely ignored
+      ble.emitIncomingTextForTesting('NO DATA\r>');
+      expect(ble.hasPendingCommandForTesting, isFalse);
+
+      // Next command must succeed cleanly with its own buffer and completer
+      final String rpmResp = await ble.sendCommand(
+        '010C',
+        timeout: const Duration(milliseconds: 200),
+      );
+      expect(rpmResp, equals('41 0C 1F 40\r>'));
+      expect(ble.hasPendingCommandForTesting, isFalse);
+      expect(writtenCommands, equals(<String>['0100\r', '010C\r']));
+    });
+
+    test('FileLoggerService.stopSession snapshots _matrixFile atomically against concurrent lifecycle save',
+        () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('ecu_logger_race_test_');
+      addTearDown(() async {
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      final FileLoggerService logger = FileLoggerService.instance;
+      await logger.startSession(explicitDirectoryPath: tempDir.path);
+
+      final RemapMatrix matrixAtStop = RemapMatrix();
+      matrixAtStop.recordSample(rpm: 3000.0, tps: 20.0, ve: 82.0, isVvaActive: false);
+
+      final RemapMatrix lateMutatedMatrix = RemapMatrix();
+      lateMutatedMatrix.recordSample(rpm: 9000.0, tps: 90.0, ve: 99.0, isVvaActive: true);
+
+      // Invoke stopSession and concurrently trigger saveRemapMatrix as lifecycle pause would
+      await Future.wait(<Future<void>>[
+        logger.stopSession(matrixAtStop),
+        logger.saveRemapMatrix(lateMutatedMatrix),
+      ]);
+
+      final File matrixFile = tempDir
+          .listSync()
+          .whereType<File>()
+          .firstWhere((File f) => f.path.contains('remap_matrix_'));
+      final dynamic decoded = jsonDecode(await matrixFile.readAsString());
+      expect(decoded['low_cam_matrix'][4][4]['count'], equals(1));
+      expect(decoded['high_cam_matrix'][10][9]['count'], equals(0));
+    });
+
+    test('DashboardLayoutService disk initialization restores Factory Cockpit, deduplicates legacy JSON, and persists 8-col 80pt layouts',
+        () async {
+      final Directory tempDir = await Directory.systemTemp.createTemp('ecu_layout_disk_test_');
+      final DashboardLayoutService service = DashboardLayoutService.instance;
+      addTearDown(() async {
+        service.setStorageDirectoryForTesting(null);
+        service.resetForTesting();
+        if (await tempDir.exists()) {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
+      service.setStorageDirectoryForTesting(tempDir);
+
+      // Seed legacy JSON missing default_design and having duplicate default cards + custom 8-col 80pt layout
+      final List<Map<String, dynamic>> defaultCardsJson =
+          DashboardDesign.createDefault().cards.map((CardConfig c) => c.toJson()).toList();
+      final DashboardDesign customWide = DashboardDesign(
+        id: 'design_custom_wide',
+        name: 'Cockpit Layout 2',
+        createdAt: DateTime(2026, 11, 23),
+        cards: const <CardConfig>[
+          CardConfig(
+            metricId: 'rpm',
+            colSpan: 8,
+            rowSpan: 2,
+            titleFontSize: 80.0,
+            valueFontSize: 80.0,
+            unitFontSize: 80.0,
+          ),
+          CardConfig(metricId: 'tps', colSpan: 2, rowSpan: 2),
+        ],
+      );
+      final DashboardDesign dupDefault = DashboardDesign(
+        id: 'design_dup_default',
+        name: 'Default Cockpit',
+        createdAt: DateTime(2026, 11, 22),
+        cards: defaultCardsJson.map(CardConfig.fromJson).toList(),
+      );
+
+      await File('${tempDir.path}/saved_dashboard_layouts.json').writeAsString(
+        jsonEncode(<Map<String, dynamic>>[dupDefault.toJson(), customWide.toJson()]),
+      );
+      await File('${tempDir.path}/active_dashboard_layout.json').writeAsString(
+        jsonEncode(dupDefault.toJson()),
+      );
+
+      await service.initialize();
+
+      // Factory Cockpit restored at index 0, duplicate removed, custom 8-col 80pt preserved
+      expect(service.savedDesigns.length, equals(2));
+      expect(service.savedDesigns.first.id, equals(DashboardDesign.defaultDesignId));
+      expect(service.savedDesigns.first.name, equals(DashboardDesign.defaultDesignName));
+      expect(service.savedDesigns[1].id, equals('design_custom_wide'));
+      expect(service.savedDesigns[1].cards.first.colSpan, equals(8));
+      expect(service.savedDesigns[1].cards.first.valueFontSize, equals(80.0));
+      expect(service.activeDesign.id, equals(DashboardDesign.defaultDesignId));
+
+      // Re-initialize from newly persisted disk files to confirm clean round-trip
+      await service.initialize();
+      expect(service.savedDesigns.length, equals(2));
+      expect(service.savedDesigns[1].cards.first.colSpan, equals(8));
+    });
+
+    testWidgets('SavedLayoutsDialog clamps carousel page cleanly when deleting the last of 3 layouts',
+        (WidgetTester tester) async {
+      final DashboardLayoutService service = DashboardLayoutService.instance;
+      service.resetForTesting();
+      await service.initialize();
+
+      service.startEditMode();
+      service.updateCardConfig(service.displayCards.first.copyWith(colSpan: 4));
+      await service.saveEditMode();
+
+      service.startEditMode();
+      service.updateCardConfig(service.displayCards.first.copyWith(colSpan: 3, valueFontSize: 70.0));
+      await service.saveEditMode();
+      expect(service.savedDesigns.length, equals(3));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (BuildContext context) {
+              return ElevatedButton(
+                onPressed: () => SavedLayoutsDialog.show(
+                  context: context,
+                  onPreviewSelected: (_) {},
+                ),
+                child: const Text('Open Carousel'),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open Carousel'));
+      await tester.pumpAndSettle();
+
+      // Swipe to Page 1 then Page 2 (Cockpit Layout 3)
+      await tester.drag(find.byType(PageView), const Offset(-350.0, 0.0));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(PageView), const Offset(-350.0, 0.0));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cockpit Layout 3'), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.delete_outline_rounded).last);
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(service.savedDesigns.length, equals(2));
+      expect(find.text('Saved Cockpit Layouts'), findsOneWidget);
+      expect(find.text('Cockpit Layout 2'), findsOneWidget);
     });
 
     testWidgets('FontSizeDialog sliders drag smoothly up to 80.0 pt from default values',
@@ -395,6 +605,109 @@ void main() {
       expect(result!.titleSize, greaterThan(70.0));
       expect(result!.valueSize, greaterThan(70.0));
       expect(result!.unitSize, greaterThan(70.0));
+    });
+
+    testWidgets('SavedLayoutsDialog and FontSizeDialog render without overflow on compact landscape (640x320 & 800x360)',
+        (WidgetTester tester) async {
+      final DashboardLayoutService service = DashboardLayoutService.instance;
+      service.resetForTesting();
+      await service.initialize();
+      service.startEditMode();
+      service.updateCardConfig(service.displayCards.first.copyWith(colSpan: 4));
+      await service.saveEditMode();
+
+      for (final Size sz in const <Size>[Size(800.0, 360.0), Size(640.0, 320.0), Size(640.0, 270.0)]) {
+        tester.view.physicalSize = sz;
+        tester.view.devicePixelRatio = 1.0;
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (BuildContext context) {
+                return Column(
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => SavedLayoutsDialog.show(
+                        context: context,
+                        onPreviewSelected: (_) {},
+                      ),
+                      child: const Text('Open Layouts'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => FontSizeDialog.show(
+                        context: context,
+                        cardTitle: 'Engine Speed',
+                        currentTitleSize: 80.0,
+                        currentValueSize: 80.0,
+                        currentUnitSize: 80.0,
+                      ),
+                      child: const Text('Open Font'),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open Layouts'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'SavedLayoutsDialog overflowed at $sz');
+        await tester.tap(find.byIcon(Icons.close_rounded));
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text('Open Font'));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull, reason: 'FontSizeDialog overflowed at $sz');
+        await tester.tap(find.text('Apply'));
+        await tester.pumpAndSettle();
+      }
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+    });
+
+    testWidgets('Vertical-only resize in portrait preserves wider colSpan from tablet/landscape',
+        (WidgetTester tester) async {
+      final DashboardLayoutService service = DashboardLayoutService.instance;
+      service.resetForTesting();
+      await service.initialize();
+
+      // Simulate wide-screen 6-col card active on portrait 4-col screen
+      service.startEditMode();
+      service.updateCardConfig(service.displayCards.first.copyWith(colSpan: 6, rowSpan: 2));
+      await service.saveEditMode();
+
+      tester.view.physicalSize = const Size(412.0, 915.0);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+      await tester.pumpAndSettle();
+
+      await tester.longPress(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+      await tester.tap(find.text('ENGINE SPEED'));
+      await tester.pump(const Duration(milliseconds: 350));
+
+      final Rect rpmRect = tester.getRect(_cardFinderByLabel('ENGINE SPEED'));
+      final TestGesture bottomDrag = await tester.startGesture(rpmRect.bottomCenter);
+      await tester.pump();
+      await bottomDrag.moveBy(const Offset(0.0, 70.0));
+      await tester.pump();
+      await bottomDrag.up();
+      await tester.pumpAndSettle();
+
+      final CardConfig rpmAfterVertical = DashboardLayoutService.instance.displayCards
+          .firstWhere((CardConfig c) => c.metricId == 'rpm');
+      expect(rpmAfterVertical.rowSpan, equals(3));
+      expect(rpmAfterVertical.colSpan, equals(6));
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.tap(find.byIcon(Icons.close_rounded));
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.tap(find.text('Discard'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
     });
   });
 }

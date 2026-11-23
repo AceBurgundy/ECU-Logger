@@ -244,25 +244,38 @@ class FileLoggerService {
     if (!_isLogging) return;
     _isLogging = false;
 
-    if (matrix != null) {
-      await saveRemapMatrix(matrix);
-    }
+    final File? matrixFileToFinalize = _matrixFile;
     _matrixFile = null;
 
-    try {
-      await _rawCanSink?.flush();
-      await _rawCanSink?.close();
-    } catch (exception) {
-      // Ignore sink close exceptions
-    }
+    final IOSink? rawSink = _rawCanSink;
     _rawCanSink = null;
 
+    final IOSink? telemetrySink = _telemetrySink;
+    _telemetrySink = null;
+
+    if (matrix != null && matrixFileToFinalize != null) {
+      try {
+        await matrixFileToFinalize.writeAsString(
+          matrix.toFormattedJson(),
+          flush: true,
+        );
+      } catch (exception) {
+        // Ignore final matrix write exceptions
+      }
+    }
+
     try {
-      await _telemetrySink?.flush();
-      await _telemetrySink?.close();
+      await rawSink?.flush();
+      await rawSink?.close();
     } catch (exception) {
       // Ignore sink close exceptions
     }
-    _telemetrySink = null;
+
+    try {
+      await telemetrySink?.flush();
+      await telemetrySink?.close();
+    } catch (exception) {
+      // Ignore sink close exceptions
+    }
   }
 }

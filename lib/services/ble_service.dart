@@ -7,6 +7,7 @@
 // PID = Parameter Identification
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'elm327_protocol.dart';
@@ -101,6 +102,30 @@ class BleService {
   bool _isHardwarePollingActive = false;
   Completer<String>? _pendingCommandCompleter;
   final StringBuffer _commandResponseBuffer = StringBuffer();
+  Future<void> Function(List<int> bytes)? _writeHandlerForTesting;
+
+  /// Configures a simulated GATT write transport and connection state for unit tests.
+  @visibleForTesting
+  void configureTransportForTesting({
+    required BleConnectionState state,
+    Future<void> Function(List<int> bytes)? onWrite,
+  }) {
+    _writeHandlerForTesting = onWrite;
+    _pendingCommandCompleter = null;
+    _commandResponseBuffer.clear();
+    _updateState(state);
+  }
+
+  /// Injects a raw incoming RX chunk into [dataStream] and command response parser for unit tests.
+  @visibleForTesting
+  void emitIncomingTextForTesting(String text) {
+    _dataStreamController.add(text);
+    _onDataReceived(text);
+  }
+
+  /// Exposes whether a command completer is currently awaiting prompt completion in tests.
+  @visibleForTesting
+  bool get hasPendingCommandForTesting => _pendingCommandCompleter != null;
 
   void _updateState(BleConnectionState newState) {
     _state = newState;
@@ -424,18 +449,28 @@ class BleService {
   }) async {
     if (_state != BleConnectionState.connected) return '';
 
+    Future<void> Function(List<int> bytes)? writeBytes;
     if (_writeCharacteristic != null) {
+      final BluetoothCharacteristic tx = _writeCharacteristic!;
+      writeBytes = (List<int> bytes) async {
+        try {
+          await tx.write(bytes, withoutResponse: true);
+        } catch (exception) {
+          await tx.write(bytes, withoutResponse: false);
+        }
+      };
+    } else if (_writeHandlerForTesting != null) {
+      writeBytes = _writeHandlerForTesting;
+    }
+
+    if (writeBytes != null) {
       _commandResponseBuffer.clear();
       final Completer<String> commandCompleter = Completer<String>();
       _pendingCommandCompleter = commandCompleter;
 
       try {
         final List<int> bytes = utf8.encode('$command\r');
-        try {
-          await _writeCharacteristic!.write(bytes, withoutResponse: true);
-        } catch (exception) {
-          await _writeCharacteristic!.write(bytes, withoutResponse: false);
-        }
+        await writeBytes(bytes);
 
         final String response = await commandCompleter.future.timeout(
           timeout,
@@ -667,6 +702,7 @@ class BleService {
     }
     _connectedDevice = null;
     _writeCharacteristic = null;
+    _writeHandlerForTesting = null;
 
     _updateState(BleConnectionState.disconnected);
   }

@@ -58,17 +58,25 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
   Widget build(BuildContext context) {
     final List<DashboardDesign> designs = _layoutService.savedDesigns;
     final Size screenSize = MediaQuery.of(context).size;
-    final int activeTotalColumns = computeDashboardColumnsForWidth(screenSize.width);
-    final double dialogWidth = math.min(420.0, screenSize.width * 0.88);
-    final double dialogHeight = math.min(370.0, screenSize.height * 0.62);
+    final EdgeInsets mediaPadding = MediaQuery.paddingOf(context);
+    final double layoutViewportWidth = math.max(220.0, screenSize.width - mediaPadding.horizontal);
+    final int activeTotalColumns = computeDashboardColumnsForWidth(layoutViewportWidth);
+    final bool isCompactHeight = screenSize.height < 500.0;
+    final double verticalInset = isCompactHeight ? 12.0 : 24.0;
+    final double horizontalInset = screenSize.width < 480.0 ? 20.0 : 32.0;
+    final double dialogWidth = math.min(420.0, screenSize.width - (horizontalInset * 2));
+    final double maxContentHeight = math.max(120.0, screenSize.height - (verticalInset * 2) - 92.0);
+    final double dialogHeight = math.min(370.0, math.min(screenSize.height * 0.64, maxContentHeight));
+    final bool isTightCard = dialogHeight < 220.0;
 
     return AlertDialog(
       backgroundColor: GitHubTheme.canvasDefault,
+      insetPadding: EdgeInsets.symmetric(horizontal: horizontalInset, vertical: verticalInset),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16.0),
         side: const BorderSide(color: GitHubTheme.borderDefault),
       ),
-      titlePadding: const EdgeInsets.fromLTRB(20.0, 16.0, 12.0, 6.0),
+      titlePadding: EdgeInsets.fromLTRB(20.0, isCompactHeight ? 10.0 : 16.0, 12.0, 4.0),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -87,11 +95,16 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
           ),
           IconButton(
             icon: const Icon(Icons.close_rounded, size: 20.0, color: GitHubTheme.fgMuted),
+            style: IconButton.styleFrom(
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              minimumSize: const Size(32.0, 32.0),
+              padding: const EdgeInsets.all(6.0),
+            ),
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),
-      contentPadding: const EdgeInsets.fromLTRB(10.0, 6.0, 10.0, 14.0),
+      contentPadding: EdgeInsets.fromLTRB(10.0, 4.0, 10.0, isCompactHeight ? 10.0 : 14.0),
       content: SizedBox(
         width: dialogWidth,
         height: dialogHeight,
@@ -115,8 +128,11 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                         final bool canDelete = !design.isDefault;
 
                         return Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 5.0, vertical: 4.0),
-                          padding: const EdgeInsets.all(12.0),
+                          margin: EdgeInsets.symmetric(
+                            horizontal: 5.0,
+                            vertical: isTightCard ? 2.0 : 4.0,
+                          ),
+                          padding: EdgeInsets.all(isTightCard ? 8.0 : 12.0),
                           decoration: BoxDecoration(
                             color: GitHubTheme.canvasSubtle,
                             borderRadius: BorderRadius.circular(12.0),
@@ -164,25 +180,25 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                                     ),
                                 ],
                               ),
-                              const SizedBox(height: 10.0),
+                              SizedBox(height: isTightCard ? 6.0 : 10.0),
 
                               // Real Miniature Cockpit Layout Representation
                               Expanded(
                                 child: Container(
                                   width: double.infinity,
-                                  padding: const EdgeInsets.all(8.0),
+                                  padding: EdgeInsets.all(isTightCard ? 6.0 : 8.0),
                                   decoration: BoxDecoration(
                                     color: GitHubTheme.canvasDefault,
                                     borderRadius: BorderRadius.circular(8.0),
                                   ),
                                   child: _buildMiniatureLayoutPreview(
                                     design: design,
-                                    referenceScreenWidth: screenSize.width,
+                                    referenceScreenWidth: layoutViewportWidth,
                                     totalColumns: activeTotalColumns,
                                   ),
                                 ),
                               ),
-                              const SizedBox(height: 6.0),
+                              SizedBox(height: isTightCard ? 4.0 : 6.0),
 
                               // Minimal Icon Actions: Preview (+ Delete only for non-default layouts)
                               Row(
@@ -196,20 +212,30 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                                         size: 20.0,
                                       ),
                                       tooltip: 'Delete Design',
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(6.0),
+                                      style: IconButton.styleFrom(
+                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        minimumSize: const Size(32.0, 32.0),
+                                        padding: const EdgeInsets.all(6.0),
+                                      ),
                                       onPressed: () async {
                                         await _layoutService.deleteDesign(design.id);
                                         if (mounted && context.mounted) {
-                                          setState(() {
-                                            if (_currentPageIndex >= _layoutService.savedDesigns.length &&
-                                                _layoutService.savedDesigns.isNotEmpty) {
-                                              _currentPageIndex = _layoutService.savedDesigns.length - 1;
-                                            }
-                                          });
                                           if (_layoutService.savedDesigns.length < 2) {
                                             Navigator.of(context).pop();
+                                            return;
                                           }
+                                          final int clampedIndex = _currentPageIndex.clamp(
+                                            0,
+                                            _layoutService.savedDesigns.length - 1,
+                                          );
+                                          setState(() {
+                                            _currentPageIndex = clampedIndex;
+                                          });
+                                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                                            if (_pageController.hasClients) {
+                                              _pageController.jumpToPage(clampedIndex);
+                                            }
+                                          });
                                         }
                                       },
                                     ),
@@ -222,8 +248,11 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                                       size: 20.0,
                                     ),
                                     tooltip: 'Preview Layout',
-                                    constraints: const BoxConstraints(),
-                                    padding: const EdgeInsets.all(6.0),
+                                    style: IconButton.styleFrom(
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      minimumSize: const Size(32.0, 32.0),
+                                      padding: const EdgeInsets.all(6.0),
+                                    ),
                                     onPressed: () {
                                       Navigator.of(context).pop();
                                       widget.onPreviewSelected(design);
@@ -239,7 +268,7 @@ class _SavedLayoutsDialogState extends State<SavedLayoutsDialog> {
                   ),
 
                   // Carousel Page Indicator Dots
-                  const SizedBox(height: 8.0),
+                  SizedBox(height: isTightCard ? 4.0 : 8.0),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: List<Widget>.generate(designs.length, (int dotIndex) {

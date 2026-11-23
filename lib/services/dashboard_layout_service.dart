@@ -31,6 +31,17 @@ class DashboardLayoutService extends ChangeNotifier {
   // Frozen preview state tracking
   bool _isFreezePreview = false;
   DashboardDesign? _previewSnapshot;
+  Directory? _storageDirectoryOverrideForTesting;
+
+  bool get _skipDiskPersistence =>
+      _storageDirectoryOverrideForTesting == null &&
+      Platform.environment.containsKey('FLUTTER_TEST');
+
+  /// Sets an isolated temporary directory for real disk persistence tests.
+  @visibleForTesting
+  void setStorageDirectoryForTesting(Directory? dir) {
+    _storageDirectoryOverrideForTesting = dir;
+  }
 
   /// Current active dashboard design.
   DashboardDesign get activeDesign => _activeDesign;
@@ -53,6 +64,9 @@ class DashboardLayoutService extends ChangeNotifier {
   }
 
   Future<Directory> _getBaseDirectory() async {
+    if (_storageDirectoryOverrideForTesting != null) {
+      return _storageDirectoryOverrideForTesting!;
+    }
     if (Platform.environment.containsKey('FLUTTER_TEST')) {
       return Directory.systemTemp;
     }
@@ -65,11 +79,13 @@ class DashboardLayoutService extends ChangeNotifier {
 
   /// Initializes the service by reading saved designs from application storage.
   Future<void> initialize() async {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) {
+    if (_skipDiskPersistence) {
       _ensureDefaultAndDeduplicate();
       notifyListeners();
       return;
     }
+    _activeDesign = DashboardDesign.createDefault();
+    _savedDesigns.clear();
     try {
       final Directory baseDir = await _getBaseDirectory();
 
@@ -121,10 +137,16 @@ class DashboardLayoutService extends ChangeNotifier {
     if (defaultIndex == -1) {
       _savedDesigns.insert(0, baselineDefault);
       modified = true;
-    } else if (defaultIndex != 0) {
-      final DashboardDesign foundDefault = _savedDesigns.removeAt(defaultIndex);
-      _savedDesigns.insert(0, foundDefault);
-      modified = true;
+    } else {
+      if (_savedDesigns[defaultIndex].cards.isEmpty) {
+        _savedDesigns[defaultIndex] = baselineDefault;
+        modified = true;
+      }
+      if (defaultIndex != 0) {
+        final DashboardDesign foundDefault = _savedDesigns.removeAt(defaultIndex);
+        _savedDesigns.insert(0, foundDefault);
+        modified = true;
+      }
     }
 
     final List<DashboardDesign> uniqueDesigns = <DashboardDesign>[];
@@ -237,8 +259,16 @@ class DashboardLayoutService extends ChangeNotifier {
       nextNumber++;
     }
 
+    final int timestampUs = DateTime.now().microsecondsSinceEpoch;
+    String candidateId = 'design_$timestampUs';
+    int idSuffix = 1;
+    while (_savedDesigns.any((DashboardDesign d) => d.id == candidateId)) {
+      candidateId = 'design_${timestampUs}_$idSuffix';
+      idSuffix++;
+    }
+
     final DashboardDesign newDesign = DashboardDesign(
-      id: 'design_${DateTime.now().millisecondsSinceEpoch}',
+      id: candidateId,
       name: 'Cockpit Layout $nextNumber',
       createdAt: DateTime.now(),
       cards: draftSnapshot,
@@ -302,7 +332,7 @@ class DashboardLayoutService extends ChangeNotifier {
   }
 
   Future<void> _persistActiveLayout() async {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
+    if (_skipDiskPersistence) return;
     try {
       final Directory baseDir = await _getBaseDirectory();
       final File activeFile = File('${baseDir.path}/$_activeLayoutFileName');
@@ -313,7 +343,7 @@ class DashboardLayoutService extends ChangeNotifier {
   }
 
   Future<void> _persistSavedDesigns() async {
-    if (Platform.environment.containsKey('FLUTTER_TEST')) return;
+    if (_skipDiskPersistence) return;
     try {
       final Directory baseDir = await _getBaseDirectory();
       final File savedFile = File('${baseDir.path}/$_savedLayoutsFileName');
