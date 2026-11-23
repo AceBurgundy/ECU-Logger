@@ -14,13 +14,26 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Metric Selection & Placeholder Tests', () {
-    test('Unconnected TelemetryData returns placeholder dashes for all metrics', () {
+    test('Unconnected TelemetryData returns type-matched zero placeholders for all metrics', () {
       final TelemetryData emptyData = TelemetryData();
       const bool isConnected = false;
 
       for (final TelemetryMetric metric in TelemetryMetric.allMetrics) {
         final String formatted = metric.valueFormatter(emptyData, isConnected);
-        expect(formatted, equals('--'), reason: 'Metric ${metric.name} should display placeholder when disconnected');
+        expect(formatted, isNot(equals('--')), reason: 'Metric ${metric.name} must not display dashes');
+        if (metric.id == 'rpm' || metric.id == 'speed') {
+          expect(formatted, equals('00'), reason: 'Integer metric ${metric.name} should display 00');
+        } else if (metric.id == 'tps' || metric.id == 've' || metric.id == 'stft' || metric.id == 'ltft' || metric.id == 'load') {
+          expect(formatted, equals('0%'), reason: 'Percentage metric ${metric.name} should display 0%');
+        } else if (metric.id == 'volt') {
+          expect(formatted, equals('0.00'), reason: 'Voltage metric ${metric.name} should display 0.00');
+        } else if (metric.id == 'o2') {
+          expect(formatted, equals('0.000'), reason: 'O2 metric ${metric.name} should display 0.000');
+        } else if (metric.id == 'vva') {
+          expect(formatted, equals('OFF'), reason: 'VVA status metric should display OFF');
+        } else {
+          expect(formatted, equals('0.0'), reason: 'Decimal metric ${metric.name} should display 0.0');
+        }
         expect(metric.isHighlight(emptyData, isConnected), isFalse);
       }
     });

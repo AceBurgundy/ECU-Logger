@@ -44,3 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .metadata
+active_dashboard_layout.json
+saved_dashboard_layouts.json
+

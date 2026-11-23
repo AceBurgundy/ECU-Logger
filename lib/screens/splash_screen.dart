@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
 import '../services/ble_service.dart';
 import '../services/file_logger_service.dart';
+import '../services/dashboard_layout_service.dart';
 import 'home_screen.dart';
 
 /// Minimalist splash and loading screen following GitHub Primer dark aesthetics.
@@ -104,6 +105,10 @@ class _SplashScreenState extends State<SplashScreen>
       await FileLoggerService.instance
           .initialize()
           .timeout(const Duration(milliseconds: 1500), onTimeout: () {});
+
+      await DashboardLayoutService.instance
+          .initialize()
+          .timeout(const Duration(milliseconds: 1000), onTimeout: () {});
 
       if (mounted) {
         setState(() {

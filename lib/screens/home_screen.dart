@@ -7,22 +7,25 @@
 // ECT = Engine Coolant Temperature
 // VVA = Variable Valve Actuation
 // BLE = Bluetooth Low Energy
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme/github_theme.dart';
-import '../models/telemetry_metric.dart';
+import '../models/dashboard_layout.dart';
 import '../services/ble_service.dart';
 import '../services/telemetry_engine.dart';
 import '../services/file_logger_service.dart';
-import '../widgets/metric_card.dart';
+import '../services/dashboard_layout_service.dart';
 import '../widgets/log_drawer.dart';
 import '../widgets/bluetooth_dialog.dart';
 import '../widgets/lock_overlay.dart';
 import '../widgets/toast_overlay.dart';
 import '../widgets/metric_selection_sheet.dart';
+import '../widgets/dashboard_flow_layout.dart';
+import '../widgets/saved_layouts_dialog.dart';
 
-/// Primary dashboard screen providing the Option 3 layout with dynamic digital readout cards,
-/// card wobble edit mode, telemetry channel selector, collapsible console log drawer,
-/// pocket touch lock overlay, and status-colored FABs.
+/// Primary dashboard screen providing flush digital readouts, interactive Edit Mode,
+/// 2-column reflow layout with corner resizing, typography dialogs, saved layouts carousel,
+/// and conditional OBD-II session controls.
 class HomeScreen extends StatefulWidget {
   /// Creates the [HomeScreen] widget.
   const HomeScreen({super.key});
@@ -36,9 +39,11 @@ class _HomeScreenState extends State<HomeScreen>
   final BleService _ble = BleService.instance;
   final TelemetryEngine _telemetry = TelemetryEngine.instance;
   final FileLoggerService _fileLogger = FileLoggerService.instance;
+  final DashboardLayoutService _layoutService = DashboardLayoutService.instance;
 
   bool _isScreenLocked = false;
   bool _isEditMode = false;
+  StreamSubscription<BleConnectionState>? _bleStateSubscription;
   late final AnimationController _shakeController;
   late final Animation<double> _shakeAnimation;
 
@@ -46,7 +51,12 @@ class _HomeScreenState extends State<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _telemetry.addListener(_onTelemetryUpdate);
+    _telemetry.addListener(_onStateUpdate);
+    _layoutService.addListener(_onStateUpdate);
+
+    _bleStateSubscription = _ble.stateStream.listen((BleConnectionState state) {
+      if (mounted) setState(() {});
+    });
 
     _shakeController = AnimationController(
       vsync: this,
@@ -56,12 +66,16 @@ class _HomeScreenState extends State<HomeScreen>
     _shakeAnimation = Tween<double>(begin: -1.0, end: 1.0).animate(
       CurvedAnimation(parent: _shakeController, curve: Curves.easeInOut),
     );
+
+    _layoutService.initialize();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _telemetry.removeListener(_onTelemetryUpdate);
+    _telemetry.removeListener(_onStateUpdate);
+    _layoutService.removeListener(_onStateUpdate);
+    _bleStateSubscription?.cancel();
     _shakeController.dispose();
     super.dispose();
   }
@@ -77,26 +91,122 @@ class _HomeScreenState extends State<HomeScreen>
     }
   }
 
-  void _onTelemetryUpdate() {
+  void _onStateUpdate() {
     if (mounted) setState(() {});
   }
 
   void _enterEditMode() {
-    if (_isEditMode) return;
+    if (_isEditMode || _layoutService.isFreezePreview) return;
     setState(() => _isEditMode = true);
+    _layoutService.startEditMode();
     _shakeController.repeat(reverse: true);
     ToastService.show(
       context,
-      'Edit Mode active. Drag cards to rearrange or drag to bottom to remove.',
+      'Edit Mode active. Long-press cards to drag, tap to resize.',
       type: ToastType.info,
     );
   }
 
-  void _exitEditMode() {
-    if (!_isEditMode) return;
-    setState(() => _isEditMode = false);
+  Future<void> _handleCancelEditPrompt() async {
+    final bool? shouldDiscard = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          backgroundColor: GitHubTheme.canvasDefault,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14.0),
+            side: const BorderSide(color: GitHubTheme.borderDefault),
+          ),
+          title: const Text(
+            'Discard Changes?',
+            style: TextStyle(
+              fontFamily: GitHubTheme.fontCanela,
+              fontSize: 18.0,
+              fontWeight: FontWeight.w700,
+              color: GitHubTheme.fgDefault,
+            ),
+          ),
+          content: const Text(
+            'Any unsaved modifications to the dashboard layout will be discarded.',
+            style: TextStyle(
+              fontFamily: GitHubTheme.fontGoogleSans,
+              fontSize: 14.0,
+              color: GitHubTheme.fgMuted,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Keep Editing', style: TextStyle(color: GitHubTheme.fgSubtle)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: GitHubTheme.dangerFg,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8.0)),
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Discard', style: TextStyle(fontWeight: FontWeight.w700)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDiscard == true && mounted) {
+      _layoutService.cancelEditMode();
+      _shakeController.stop();
+      _shakeController.reset();
+      setState(() => _isEditMode = false);
+      ToastService.show(
+        context,
+        'Layout changes discarded.',
+        type: ToastType.info,
+      );
+    }
+  }
+
+  Future<void> _handleSaveEditMode() async {
+    await _layoutService.saveEditMode();
     _shakeController.stop();
     _shakeController.reset();
+    setState(() => _isEditMode = false);
+    if (mounted) {
+      ToastService.show(
+        context,
+        'Cockpit layout saved successfully.',
+        type: ToastType.success,
+      );
+    }
+  }
+
+  Future<void> _handleStopObdSession() async {
+    _telemetry.addLogLine('[OBD] Disconnect button pressed. Stopping active session...');
+    if (_fileLogger.isLogging) {
+      await _fileLogger.stopSession();
+    }
+    await _ble.disconnect();
+    if (mounted) {
+      ToastService.show(
+        context,
+        'OBD-II session disconnected.',
+        type: ToastType.info,
+      );
+    }
+  }
+
+  void _showSavedLayoutsDialog() {
+    SavedLayoutsDialog.show(
+      context: context,
+      onPreviewSelected: (DashboardDesign previewDesign) {
+        _layoutService.startFreezePreview(previewDesign);
+        ToastService.show(
+          context,
+          'Previewing ${previewDesign.name} in frozen mode. Press Set to apply or Cancel to restore.',
+          type: ToastType.info,
+        );
+      },
+    );
   }
 
   Future<void> _handleFolderPickerTap() async {
@@ -163,357 +273,353 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
-  Widget _buildCardItem({
-    required String metricId,
-    required int index,
-    required TelemetryData data,
-    required bool isConnected,
-  }) {
-    final TelemetryMetric? metric = TelemetryMetric.findById(metricId);
-    if (metric == null) return const SizedBox.shrink();
-
-    final String displayValue = metric.valueFormatter(data, isConnected);
-    final bool highlighted = metric.isHighlight(data, isConnected);
-
-    final Widget cardWidget = MetricCard(
-      label: metric.shortLabel,
-      value: displayValue,
-      unit: metric.unit,
-      accentColor: metric.accentColor,
-      isHighlight: highlighted,
-      onLongPress: _enterEditMode,
-    );
-
-    if (!_isEditMode) {
-      return cardWidget;
-    }
-
-    // Edit Mode: apply downscale and shaking animation with drag-and-drop
-    final Widget animatedCard = AnimatedBuilder(
-      animation: _shakeAnimation,
-      builder: (BuildContext cardContext, Widget? child) {
-        final double sign = (index % 2 == 0) ? 1.0 : -1.0;
-        final double rotationAngle = sign * 0.024 * _shakeAnimation.value;
-        final double translationY = (index % 3 == 0 ? 1.0 : -1.0) * 1.5 * _shakeAnimation.value;
-
-        return Transform.scale(
-          scale: 0.90,
-          child: Transform.translate(
-            offset: Offset(0.0, translationY),
-            child: Transform.rotate(
-              angle: rotationAngle,
-              child: child,
-            ),
-          ),
-        );
-      },
-      child: cardWidget,
-    );
-
-    return DragTarget<String>(
-      onWillAcceptWithDetails: (DragTargetDetails<String> details) => details.data != metricId,
-      onAcceptWithDetails: (DragTargetDetails<String> details) {
-        final int oldIndex = _telemetry.activeDashboardMetricIds.indexOf(details.data);
-        if (oldIndex != -1) {
-          _telemetry.reorderDashboardMetrics(oldIndex, index);
-        }
-      },
-      builder: (BuildContext dropContext, List<String?> candidateData, List<dynamic> rejectedData) {
-        return Draggable<String>(
-          data: metricId,
-          feedback: Material(
-            color: Colors.transparent,
-            child: SizedBox(
-              width: 160.0,
-              height: 110.0,
-              child: Transform.scale(
-                scale: 1.05,
-                child: cardWidget,
-              ),
-            ),
-          ),
-          childWhenDragging: Opacity(
-            opacity: 0.3,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12.0),
-                border: Border.all(
-                  color: GitHubTheme.accent.withValues(alpha: 0.5),
-                  style: BorderStyle.solid,
-                  width: 1.5,
-                ),
-              ),
-            ),
-          ),
-          child: animatedCard,
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final TelemetryData data = _telemetry.currentData;
     final bool isConnected = _ble.currentState == BleConnectionState.connected;
-    final List<String> activeIds = _telemetry.activeDashboardMetricIds;
+    final bool isFreezePreview = _layoutService.isFreezePreview;
 
     return PopScope(
-      canPop: !_isEditMode && !_isScreenLocked,
+      canPop: !_isEditMode && !_isScreenLocked && !isFreezePreview,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
         if (didPop) return;
         if (_isScreenLocked) {
           setState(() => _isScreenLocked = false);
           return;
         }
+        if (isFreezePreview) {
+          _layoutService.cancelFreezePreview();
+          return;
+        }
         if (_isEditMode) {
-          _exitEditMode();
+          _handleCancelEditPrompt();
         }
       },
       child: Scaffold(
-      backgroundColor: GitHubTheme.canvasDefault,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6.0),
-              decoration: BoxDecoration(
-                color: GitHubTheme.canvasInset,
-                borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: GitHubTheme.borderMuted),
-              ),
-              child: Icon(
-                _isEditMode ? Icons.dashboard_customize_rounded : Icons.speed,
-                size: 20.0,
-                color: _isEditMode ? GitHubTheme.warningFg : GitHubTheme.accent,
-              ),
-            ),
-            const SizedBox(width: 12.0),
-            Text(
-              _isEditMode ? 'Edit Dashboard' : 'ECU Logger',
-              style: const TextStyle(
-                fontFamily: GitHubTheme.fontCanela,
-                fontSize: 20.0,
-                fontWeight: FontWeight.w700,
-                color: GitHubTheme.fgDefault,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          if (_isEditMode)
-            TextButton.icon(
-              icon: const Icon(Icons.check, size: 18.0, color: GitHubTheme.successFg),
-              label: const Text(
-                'Done',
-                style: TextStyle(
-                  fontFamily: GitHubTheme.fontGoogleSans,
-                  fontWeight: FontWeight.w700,
-                  color: GitHubTheme.successFg,
-                ),
-              ),
-              onPressed: _exitEditMode,
-            )
-          else ...[
-            IconButton(
-              icon: const Icon(Icons.folder_outlined, size: 20.0),
-              tooltip: 'Choose Log Storage Folder',
-              onPressed: _handleFolderPickerTap,
-            ),
-            const SizedBox(width: 8.0),
-          ],
-        ],
-      ),
-      body: Stack(
-        children: [
-          // Main Option 3 Minimalist Dashboard
-          Column(
+        backgroundColor: GitHubTheme.canvasDefault,
+        appBar: AppBar(
+          title: Row(
             children: [
-              // Dynamic Digital Readout Cards Grid
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12.0,
-                      crossAxisSpacing: 12.0,
-                      childAspectRatio: 1.35,
-                    ),
-                    physics: const BouncingScrollPhysics(),
-                    itemCount: activeIds.length,
-                    itemBuilder: (BuildContext gridContext, int index) {
-                      return _buildCardItem(
-                        metricId: activeIds[index],
-                        index: index,
-                        data: data,
-                        isConnected: isConnected,
-                      );
-                    },
-                  ),
+              Container(
+                padding: const EdgeInsets.all(6.0),
+                decoration: BoxDecoration(
+                  color: GitHubTheme.canvasInset,
+                  borderRadius: BorderRadius.circular(8.0),
+                  border: Border.all(color: GitHubTheme.borderMuted),
+                ),
+                child: Icon(
+                  isFreezePreview
+                      ? Icons.lock_clock_rounded
+                      : (_isEditMode ? Icons.dashboard_customize_rounded : Icons.speed),
+                  size: 20.0,
+                  color: isFreezePreview
+                      ? GitHubTheme.warningFg
+                      : (_isEditMode ? const Color(0xFFCCFF00) : GitHubTheme.accent),
                 ),
               ),
-
-              // Edit Mode Bottom Drag Target: Remove Card
-              if (_isEditMode)
-                DragTarget<String>(
-                  onWillAcceptWithDetails: (DragTargetDetails<String> details) => true,
-                  onAcceptWithDetails: (DragTargetDetails<String> details) {
-                    final TelemetryMetric? targetMetric = TelemetryMetric.findById(details.data);
-                    final String name = targetMetric?.name ?? details.data;
-                    if (_telemetry.activeDashboardMetricIds.length <= 1) {
-                      ToastService.show(
-                        context,
-                        'Dashboard must have at least one card.',
-                        type: ToastType.warning,
-                      );
-                      return;
-                    }
-                    _telemetry.removeDashboardMetric(details.data);
-                    ToastService.show(
-                      context,
-                      'Removed $name from dashboard',
-                      type: ToastType.info,
-                    );
-                  },
-                  builder: (BuildContext dropContext, List<String?> candidateData, List<dynamic> rejectedData) {
-                    final bool isHovered = candidateData.isNotEmpty;
-
-                    return AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                      padding: const EdgeInsets.symmetric(vertical: 14.0),
-                      decoration: BoxDecoration(
-                        color: isHovered
-                            ? GitHubTheme.danger.withValues(alpha: 0.25)
-                            : GitHubTheme.canvasInset,
-                        borderRadius: BorderRadius.circular(12.0),
-                        border: Border.all(
-                          color: isHovered ? GitHubTheme.dangerFg : GitHubTheme.borderDefault,
-                          width: isHovered ? 2.0 : 1.2,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.delete_outline_rounded,
-                            color: isHovered ? GitHubTheme.dangerFg : GitHubTheme.fgMuted,
-                            size: 22.0,
-                          ),
-                          const SizedBox(width: 8.0),
-                          Text(
-                            isHovered
-                                ? 'Release to Remove'
-                                : 'Drag here to remove from dashboard',
-                            style: TextStyle(
-                              fontFamily: GitHubTheme.fontGoogleSans,
-                              fontSize: 13.0,
-                              fontWeight: isHovered ? FontWeight.w700 : FontWeight.w500,
-                              color: isHovered ? GitHubTheme.dangerFg : GitHubTheme.fgMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+              const SizedBox(width: 12.0),
+              Text(
+                isFreezePreview
+                    ? 'Preview Mode'
+                    : (_isEditMode ? 'Edit Dashboard' : 'ECU Logger'),
+                style: const TextStyle(
+                  fontFamily: GitHubTheme.fontCanela,
+                  fontSize: 20.0,
+                  fontWeight: FontWeight.w700,
+                  color: GitHubTheme.fgDefault,
                 ),
-
-              // Bottom Collapsible Monospace Log Drawer
-              LogDrawer(
-                logs: _telemetry.rollingLogs,
-                onClear: () {
-                  _telemetry.clearLogs();
-                  ToastService.show(context, 'Console log cleared', type: ToastType.info);
-                },
               ),
             ],
           ),
+          actions: [
+            if (_isEditMode) ...[
+              TextButton.icon(
+                icon: const Icon(Icons.check, size: 18.0, color: Color(0xFFCCFF00)),
+                label: const Text(
+                  'Save',
+                  style: TextStyle(
+                    fontFamily: GitHubTheme.fontGoogleSans,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFCCFF00),
+                  ),
+                ),
+                onPressed: _handleSaveEditMode,
+              ),
+            ] else if (isFreezePreview) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+                padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2.0),
+                decoration: BoxDecoration(
+                  color: GitHubTheme.warningFg.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(6.0),
+                  border: Border.all(color: GitHubTheme.warningFg, width: 0.8),
+                ),
+                child: const Text(
+                  'FROZEN',
+                  style: TextStyle(
+                    fontFamily: GitHubTheme.fontGoogleSansCode,
+                    fontSize: 10.0,
+                    fontWeight: FontWeight.w800,
+                    color: GitHubTheme.warningFg,
+                  ),
+                ),
+              ),
+            ] else ...[
+              // Grid Icon (Appears only when >= 2 saved designs exist - P3.T7)
+              if (_layoutService.canShowGridIcon)
+                IconButton(
+                  icon: const Icon(Icons.grid_view_rounded, size: 20.0),
+                  tooltip: 'Saved Cockpit Layouts',
+                  onPressed: _showSavedLayoutsDialog,
+                ),
 
-          // Translucent Lock Screen Overlay (pocket touch protection)
-          if (_isScreenLocked)
-            LockOverlay(
-              onUnlock: () {
-                setState(() => _isScreenLocked = false);
-                ToastService.show(
-                  context,
-                  'Screen unlocked. Dashboard active.',
-                  type: ToastType.success,
-                );
-              },
+              // Storage Folder Button
+              IconButton(
+                icon: const Icon(Icons.folder_outlined, size: 20.0),
+                tooltip: 'Choose Log Storage Folder',
+                onPressed: _handleFolderPickerTap,
+              ),
+
+              // Bluetooth Button on App Bar
+              IconButton(
+                icon: Icon(
+                  isConnected ? Icons.bluetooth_connected : Icons.bluetooth,
+                  color: isConnected ? GitHubTheme.successFg : GitHubTheme.fgMuted,
+                  size: 20.0,
+                ),
+                tooltip: isConnected ? 'Connected to OBD-II' : 'Connect OBD-II',
+                onPressed: _showBluetoothDialog,
+              ),
+
+              // Conditional Red Stop Button (Appears ONLY when actively connected - P2.T2)
+              if (isConnected)
+                IconButton(
+                  icon: const Icon(
+                    Icons.stop_circle_outlined,
+                    color: GitHubTheme.dangerFg,
+                    size: 22.0,
+                  ),
+                  tooltip: 'Disconnect OBD-II',
+                  onPressed: _handleStopObdSession,
+                ),
+
+              const SizedBox(width: 8.0),
+            ],
+          ],
+        ),
+        body: Stack(
+          children: [
+            Column(
+              children: [
+                // Frozen preview banner indicator
+                if (isFreezePreview)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    color: GitHubTheme.warningFg.withValues(alpha: 0.15),
+                    child: const Text(
+                      'FROZEN PREVIEW — Tap Set to apply permanently or Cancel to restore',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontFamily: GitHubTheme.fontGoogleSans,
+                        fontSize: 11.0,
+                        fontWeight: FontWeight.w700,
+                        color: GitHubTheme.warningFg,
+                      ),
+                    ),
+                  ),
+
+                // Responsive 2-Column Reflow Flow Layout Dashboard
+                Expanded(
+                  child: DashboardFlowLayout(
+                    cards: _layoutService.displayCards,
+                    telemetryData: data,
+                    isConnected: isConnected,
+                    isEditMode: _isEditMode && !isFreezePreview,
+                    shakeAnimation: _shakeAnimation,
+                    onTriggerEditMode: () {
+                      if (!isFreezePreview) _enterEditMode();
+                    },
+                    onReorderCards: (int oldIndex, int newIndex) {
+                      final List<CardConfig> updated = List<CardConfig>.from(_layoutService.displayCards);
+                      final CardConfig moved = updated.removeAt(oldIndex);
+                      updated.insert(newIndex, moved);
+                      _layoutService.updateDraftCards(updated);
+                    },
+                    onUpdateCard: (CardConfig updatedCard) {
+                      _layoutService.updateCardConfig(updatedCard);
+                    },
+                  ),
+                ),
+
+                // Bottom Collapsible Monospace Log Drawer
+                LogDrawer(
+                  logs: _telemetry.rollingLogs,
+                  onClear: () {
+                    _telemetry.clearLogs();
+                    ToastService.show(context, 'Console log cleared', type: ToastType.info);
+                  },
+                ),
+              ],
             ),
-        ],
-      ),
-      floatingActionButton: _isScreenLocked || _isEditMode
-          ? null
-          : StreamBuilder<BleConnectionState>(
-              stream: _ble.stateStream,
-              initialData: _ble.currentState,
-              builder: (BuildContext fabContext, AsyncSnapshot<BleConnectionState> snapshot) {
-                final BleConnectionState state = snapshot.data ?? BleConnectionState.disconnected;
-                final Color fabColor = _getBleFabColor(state);
 
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // List / Channel Selection FAB
-                    FloatingActionButton(
-                      heroTag: 'metric_list_fab',
-                      mini: true,
-                      tooltip: 'Available Telemetry Channels',
-                      backgroundColor: GitHubTheme.canvasSubtle,
-                      shape: const CircleBorder(
-                        side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
+            // Translucent Lock Screen Overlay (pocket touch protection)
+            if (_isScreenLocked)
+              LockOverlay(
+                onUnlock: () {
+                  setState(() => _isScreenLocked = false);
+                  ToastService.show(
+                    context,
+                    'Screen unlocked. Dashboard active.',
+                    type: ToastType.success,
+                  );
+                },
+              ),
+          ],
+        ),
+        floatingActionButton: _isScreenLocked
+            ? null
+            : (isFreezePreview
+                // Freeze Preview Bottom Buttons: icon-only Cancel & Set (P3.T8)
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      FloatingActionButton(
+                        heroTag: 'freeze_cancel_fab',
+                        mini: true,
+                        backgroundColor: GitHubTheme.canvasSubtle,
+                        shape: const CircleBorder(
+                          side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
+                        ),
+                        tooltip: 'Cancel Preview',
+                        onPressed: () {
+                          _layoutService.cancelFreezePreview();
+                          ToastService.show(
+                            context,
+                            'Preview cancelled. Restored previous layout.',
+                            type: ToastType.info,
+                          );
+                        },
+                        child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
                       ),
-                      onPressed: _showMetricSelectionSheet,
-                      child: const Icon(
-                        Icons.playlist_add_check_rounded,
-                        color: GitHubTheme.fgDefault,
-                        size: 20.0,
+                      const SizedBox(width: 12.0),
+                      FloatingActionButton(
+                        heroTag: 'freeze_set_fab',
+                        backgroundColor: GitHubTheme.successFg,
+                        shape: const CircleBorder(),
+                        tooltip: 'Set Layout',
+                        onPressed: () async {
+                          await _layoutService.applyFreezePreview();
+                          if (context.mounted) {
+                            ToastService.show(
+                              context,
+                              'Cockpit layout permanently applied.',
+                              type: ToastType.success,
+                            );
+                          }
+                        },
+                        child: const Icon(Icons.check_rounded, color: Colors.white, size: 24.0),
                       ),
-                    ),
-                    const SizedBox(width: 10.0),
+                    ],
+                  )
+                : (_isEditMode
+                    // Edit Mode Bottom Buttons: icon-only Cancel & Save (P3.T6)
+                    ? Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FloatingActionButton(
+                            heroTag: 'edit_cancel_fab',
+                            mini: true,
+                            backgroundColor: GitHubTheme.canvasSubtle,
+                            shape: const CircleBorder(
+                              side: BorderSide(color: GitHubTheme.dangerFg, width: 1.5),
+                            ),
+                            tooltip: 'Cancel Edits',
+                            onPressed: _handleCancelEditPrompt,
+                            child: const Icon(Icons.close_rounded, color: GitHubTheme.dangerFg, size: 20.0),
+                          ),
+                          const SizedBox(width: 12.0),
+                          FloatingActionButton(
+                            heroTag: 'edit_save_fab',
+                            backgroundColor: const Color(0xFFCCFF00),
+                            shape: const CircleBorder(),
+                            tooltip: 'Save Layout',
+                            onPressed: _handleSaveEditMode,
+                            child: const Icon(Icons.check_rounded, color: Colors.black, size: 24.0),
+                          ),
+                        ],
+                      )
+                    // Normal View Mode: 3 Bottom Buttons
+                    : StreamBuilder<BleConnectionState>(
+                        stream: _ble.stateStream,
+                        initialData: _ble.currentState,
+                        builder: (BuildContext fabContext, AsyncSnapshot<BleConnectionState> snapshot) {
+                          final BleConnectionState state = snapshot.data ?? BleConnectionState.disconnected;
+                          final Color fabColor = _getBleFabColor(state);
 
-                    // Lock FAB
-                    FloatingActionButton(
-                      heroTag: 'lock_fab',
-                      mini: true,
-                      backgroundColor: GitHubTheme.canvasSubtle,
-                      shape: const CircleBorder(
-                        side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
-                      ),
-                      onPressed: () {
-                        setState(() => _isScreenLocked = true);
-                        ToastService.show(
-                          context,
-                          'Pocket Lock activated. Touch protected.',
-                          type: ToastType.info,
-                        );
-                      },
-                      child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20.0),
-                    ),
-                    const SizedBox(width: 12.0),
+                          return Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // List / Channel Selection FAB
+                              FloatingActionButton(
+                                heroTag: 'metric_list_fab',
+                                mini: true,
+                                tooltip: 'Available Telemetry Channels',
+                                backgroundColor: GitHubTheme.canvasSubtle,
+                                shape: const CircleBorder(
+                                  side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
+                                ),
+                                onPressed: _showMetricSelectionSheet,
+                                child: const Icon(
+                                  Icons.playlist_add_check_rounded,
+                                  color: GitHubTheme.fgDefault,
+                                  size: 20.0,
+                                ),
+                              ),
+                              const SizedBox(width: 10.0),
 
-                    // Bluetooth FAB (changes color based on status)
-                    FloatingActionButton(
-                      heroTag: 'ble_fab',
-                      backgroundColor: fabColor,
-                      shape: const CircleBorder(),
-                      onPressed: _showBluetoothDialog,
-                      child: Icon(
-                        state == BleConnectionState.connected
-                            ? Icons.bluetooth_connected
-                            : (state == BleConnectionState.scanning
-                                ? Icons.bluetooth_searching
-                                : Icons.bluetooth),
-                        color: state == BleConnectionState.disconnected
-                            ? GitHubTheme.canvasDefault
-                            : Colors.white,
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
+                              // Lock FAB
+                              FloatingActionButton(
+                                heroTag: 'lock_fab',
+                                mini: true,
+                                backgroundColor: GitHubTheme.canvasSubtle,
+                                shape: const CircleBorder(
+                                  side: BorderSide(color: GitHubTheme.borderDefault, width: 1.2),
+                                ),
+                                onPressed: () {
+                                  setState(() => _isScreenLocked = true);
+                                  ToastService.show(
+                                    context,
+                                    'Pocket Lock activated. Touch protected.',
+                                    type: ToastType.info,
+                                  );
+                                },
+                                child: const Icon(Icons.lock_outline, color: GitHubTheme.fgDefault, size: 20.0),
+                              ),
+                              const SizedBox(width: 12.0),
+
+                              // Bluetooth FAB
+                              FloatingActionButton(
+                                heroTag: 'ble_fab',
+                                backgroundColor: fabColor,
+                                shape: const CircleBorder(),
+                                tooltip: 'Bluetooth Settings',
+                                onPressed: _showBluetoothDialog,
+                                child: Icon(
+                                  state == BleConnectionState.connected
+                                      ? Icons.bluetooth_connected
+                                      : (state == BleConnectionState.scanning
+                                          ? Icons.bluetooth_searching
+                                          : Icons.bluetooth),
+                                  color: state == BleConnectionState.disconnected
+                                      ? GitHubTheme.canvasDefault
+                                      : Colors.white,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ))),
       ),
     );
   }

@@ -62,7 +62,7 @@ class TelemetryMetric {
       obdPid: '010C / CAN 0x20A / 0x770',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.rpm == null) return '--';
+        if (!isConnected || data.rpm == null) return '00';
         return data.rpm!.toStringAsFixed(0);
       },
       isHighlight: (TelemetryData data, bool isConnected) {
@@ -79,7 +79,7 @@ class TelemetryMetric {
       obdPid: '0111 / CAN 0x20A / 0x770',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.tps == null) return '--';
+        if (!isConnected || data.tps == null) return '0%';
         return data.tps!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -94,7 +94,7 @@ class TelemetryMetric {
       obdPid: '010B',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.mapKpa == null) return '--';
+        if (!isConnected || data.mapKpa == null) return '0.0';
         return data.mapKpa!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -110,7 +110,7 @@ class TelemetryMetric {
       accentColor: GitHubTheme.successFg,
       valueFormatter: (TelemetryData data, bool isConnected) {
         if (!isConnected || (data.veCorrected == null && data.veDensity == null)) {
-          return '--';
+          return '0%';
         }
         final double? effectiveVe = data.veCorrected ?? data.veDensity;
         return effectiveVe!.toStringAsFixed(1);
@@ -127,7 +127,7 @@ class TelemetryMetric {
       obdPid: '0105 / CAN 0x236',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.ectC == null) return '--';
+        if (!isConnected || data.ectC == null) return '0.0';
         return data.ectC!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) {
@@ -144,7 +144,7 @@ class TelemetryMetric {
       obdPid: 'CAN 0x212 / Hysteresis',
       accentColor: GitHubTheme.warningFg,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.isVvaActive == null) return '--';
+        if (!isConnected || data.isVvaActive == null) return 'OFF';
         return data.isVvaActive! ? 'ACTIVE' : 'INACTIVE';
       },
       isHighlight: (TelemetryData data, bool isConnected) {
@@ -161,7 +161,7 @@ class TelemetryMetric {
       obdPid: '010F',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.iatC == null) return '--';
+        if (!isConnected || data.iatC == null) return '0.0';
         return data.iatC!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -176,7 +176,7 @@ class TelemetryMetric {
       obdPid: '0133',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.baroKpa == null) return '--';
+        if (!isConnected || data.baroKpa == null) return '0.0';
         return data.baroKpa!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -191,7 +191,7 @@ class TelemetryMetric {
       obdPid: '0106 / CAN 0x240',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.stft == null) return '--';
+        if (!isConnected || data.stft == null) return '0%';
         return data.stft!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -206,7 +206,7 @@ class TelemetryMetric {
       obdPid: '0107 / CAN 0x240',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.ltft == null) return '--';
+        if (!isConnected || data.ltft == null) return '0%';
         return data.ltft!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -221,7 +221,7 @@ class TelemetryMetric {
       obdPid: '0142 / ATRV',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.batteryVoltage == null) return '--';
+        if (!isConnected || data.batteryVoltage == null) return '0.00';
         return data.batteryVoltage!.toStringAsFixed(2);
       },
       isHighlight: (TelemetryData data, bool isConnected) {
@@ -238,7 +238,7 @@ class TelemetryMetric {
       obdPid: '0104',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.engineLoad == null) return '--';
+        if (!isConnected || data.engineLoad == null) return '0%';
         return data.engineLoad!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -253,7 +253,7 @@ class TelemetryMetric {
       obdPid: '010E',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.timingAdvance == null) return '--';
+        if (!isConnected || data.timingAdvance == null) return '0.0';
         return data.timingAdvance!.toStringAsFixed(1);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -268,7 +268,7 @@ class TelemetryMetric {
       obdPid: '0114 / CAN 0x240',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.o2Voltage == null) return '--';
+        if (!isConnected || data.o2Voltage == null) return '0.000';
         return data.o2Voltage!.toStringAsFixed(3);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
@@ -283,7 +283,7 @@ class TelemetryMetric {
       obdPid: '010D',
       accentColor: GitHubTheme.accent,
       valueFormatter: (TelemetryData data, bool isConnected) {
-        if (!isConnected || data.speedKmh == null) return '--';
+        if (!isConnected || data.speedKmh == null) return '00';
         return data.speedKmh!.toStringAsFixed(0);
       },
       isHighlight: (TelemetryData data, bool isConnected) => false,
